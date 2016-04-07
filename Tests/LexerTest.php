@@ -18,13 +18,13 @@ class LexerTest extends \PHPUnit_Framework_TestCase
     public function testLiterals()
     {
         $source = <<<EOF
-            'foo'   'bar\\\\\'foo'
+            "foo"   'bar\\\\\\'foo'
 EOF;
         $tokens = $this->lexer->tokenize($source);
 
         $this->assertEquals([
-            new Token(TokenType::LITERAL, 'foo'),
-            new Token(TokenType::LITERAL, 'bar\\\'foo'),
+            new Token(TokenType::LITERAL, '"foo"'),
+            new Token(TokenType::LITERAL, '\'bar\\\\\\\'foo\''),
         ], $tokens);
     }
 
@@ -36,9 +36,9 @@ EOF;
         $tokens = $this->lexer->tokenize($source);
 
         $this->assertEquals([
-            new Token(TokenType::LITERAL, 'foo'),
+            new Token(TokenType::LITERAL, '\'foo\''),
             new Token(TokenType::OPERATOR, '==='),
-            new Token(TokenType::LITERAL, 'bar'),
+            new Token(TokenType::LITERAL, '\'bar\''),
         ], $tokens);
     }
 }

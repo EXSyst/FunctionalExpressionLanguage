@@ -3,6 +3,7 @@
 namespace EXSyst\Component\FunctionalExpressionLanguage;
 
 use EXSyst\Component\IO\Reader\CDataReader;
+use EXSyst\Component\IO\Exception\OverflowException;
 
 class Lexer
 {
@@ -38,17 +39,20 @@ class Lexer
     private function eatString(CDataReader $source, $quote)
     {
         $value = '';
+        try {
+            while (true) {
+                $value .= $source->eatCSpan('\\'.$quote);
 
-        while (true) {
-            $value .= $source->eatCSpan('\\'.$quote);
-
-            $next = $source->read(1);
-            if ($next === $quote) {
-                return new Token(TokenType::LITERAL, stripcslashes($value));
-            } else {
-                $value .= $next;
-                $value .= $source->read(1);
+                $next = $source->read(1);
+                if ($next === $quote) {
+                    return new Token(TokenType::LITERAL, $quote.$value.$quote);
+                } else {
+                    $value .= $next;
+                    $value .= $source->read(1);
+                }
             }
+        } catch (OverflowException $exception) {
+            throw new \RuntimeException('Unterminated string literal');
         }
     }
 
