@@ -49,10 +49,6 @@ class Lexer
                 $value .= $next;
                 $value .= $source->read(1);
             }
-
-            if ($source->isFullyConsumed()) {
-                throw new \Exception('source consummed');
-            }
         }
     }
 
