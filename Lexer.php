@@ -2,8 +2,8 @@
 
 namespace EXSyst\Component\FunctionalExpressionLanguage;
 
-use EXSyst\Component\IO\Reader\CDataReader;
 use EXSyst\Component\IO\Exception\OverflowException;
+use EXSyst\Component\IO\Reader\CDataReader;
 
 class Lexer
 {
@@ -18,12 +18,12 @@ class Lexer
 
         $tokens = [];
         while (!$source->isFullyConsumed()) {
-            $source->eatWhiteSpace();
+            $spaces = $source->eatWhiteSpace();
             if ($quote = $source->eatAny(['\'', '"'])) { // strings
                 $tokens[] = $this->eatString($source, $quote);
             } elseif ($operator = $this->eatOperator($source)) {
                 $tokens[] = $operator;
-            } else {
+            } elseif (!$spaces) {
                 throw new \Exception(sprintf('Unexpected token %s', $source->eatToFullConsumption()));
             }
         }

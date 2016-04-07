@@ -41,4 +41,9 @@ EOF;
             new Token(TokenType::LITERAL, '\'bar\''),
         ], $tokens);
     }
+
+    public function testSpaces()
+    {
+        $this->assertEmpty($this->lexer->tokenize("\r\t   \t\n "));
+    }
 }
