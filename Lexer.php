@@ -1,77 +1,90 @@
 <?php
+
 namespace EXSyst\Component\FunctionalExpressionLanguage;
 
-use Symfony\Component\ExpressionLanguage\Lexer as BaseLexer;
-use Symfony\Component\ExpressionLanguage\Token;
-use Symfony\Component\ExpressionLanguage\TokenStream;
-use Symfony\Component\ExpressionLanguage\SyntaxError;
+use EXSyst\Component\IO\Reader\CDataReader;
 
-/** {@inheritdoc} */
-class Lexer extends BaseLexer
+class Lexer
 {
-    /** {@inheritdoc} */
-    public function tokenize($expression)
+    /**
+     * @param CDataReader|string $source
+     */
+    public function tokenize($source)
     {
-        $expression = str_replace(array("\r", "\n", "\t", "\v", "\f"), ' ', $expression);
-        $cursor = 0;
-        $tokens = array();
-        $brackets = array();
-        $end = strlen($expression);
-        while ($cursor < $end) {
-            if (' ' == $expression[$cursor]) {
-                ++$cursor;
-                continue;
-            }
-            if (preg_match('/[0-9]+(?:\.[0-9]+)?/A', $expression, $match, null, $cursor)) {
-                // numbers
-                $number = (float) $match[0];  // floats
-                if (ctype_digit($match[0]) && $number <= PHP_INT_MAX) {
-                    $number = (int) $match[0]; // integers lower than the maximum
-                }
-                $tokens[] = new Token(Token::NUMBER_TYPE, $number, $cursor + 1);
-                $cursor += strlen($match[0]);
-            } elseif (false !== strpos('([{', $expression[$cursor])) {
-                // opening bracket
-                $brackets[] = array($expression[$cursor], $cursor);
-                $tokens[] = new Token(Token::PUNCTUATION_TYPE, $expression[$cursor], $cursor + 1);
-                ++$cursor;
-            } elseif (false !== strpos(')]}', $expression[$cursor])) {
-                // closing bracket
-                if (empty($brackets)) {
-                    throw new SyntaxError(sprintf('Unexpected "%s"', $expression[$cursor]), $cursor);
-                }
-                list($expect, $cur) = array_pop($brackets);
-                if ($expression[$cursor] != strtr($expect, '([{', ')]}')) {
-                    throw new SyntaxError(sprintf('Unclosed "%s"', $expect), $cur);
-                }
-                $tokens[] = new Token(Token::PUNCTUATION_TYPE, $expression[$cursor], $cursor + 1);
-                ++$cursor;
-            } elseif (preg_match('/"([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'/As', $expression, $match, null, $cursor)) {
-                // strings
-                $tokens[] = new Token(Token::STRING_TYPE, stripcslashes(substr($match[0], 1, -1)), $cursor + 1);
-                $cursor += strlen($match[0]);
-            } elseif (preg_match('/not in(?=[\s(])|\!\=\=|not(?=[\s(])|and(?=[\s(])|\=\=\=|\>\=|or(?=[\s(])|\<\=|\*\*|\.\.|in(?=[\s(])|&&|\|\||matches|\=\=|\!\=|\*|~|%|\/|\>|\||\!|\^|&|\+|\<|\-|\=\>/A' /* Added "|\=\>" at the end of this regex to match "=>"" */, $expression, $match, null, $cursor)) {
-                // operators
-                $tokens[] = new Token(Token::OPERATOR_TYPE, $match[0], $cursor + 1);
-                $cursor += strlen($match[0]);
-            } elseif (false !== strpos('.,?:', $expression[$cursor])) {
-                // punctuation
-                $tokens[] = new Token(Token::PUNCTUATION_TYPE, $expression[$cursor], $cursor + 1);
-                ++$cursor;
-            } elseif (preg_match('/[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*/A', $expression, $match, null, $cursor)) {
-                // names
-                $tokens[] = new Token(Token::NAME_TYPE, $match[0], $cursor + 1);
-                $cursor += strlen($match[0]);
+        if (!$source instanceof CDataReader) {
+            $source = CDataReader::fromString($source);
+        }
+
+        $tokens = [];
+        while (!$source->isFullyConsumed()) {
+            $source->eatWhiteSpace();
+            if ($quote = $source->eatAny(['\'', '"'])) { // strings
+                $tokens[] = $this->eatString($source, $quote);
+            } elseif ($operator = $this->eatOperator($source)) {
+                $tokens[] = $operator;
             } else {
-                // unlexable
-                throw new SyntaxError(sprintf('Unexpected character "%s"', $expression[$cursor]), $cursor);
+                throw new \Exception(sprintf('Unexpected token %s', $source->eatToFullConsumption()));
             }
         }
-        $tokens[] = new Token(Token::EOF_TYPE, null, $cursor + 1);
-        if (!empty($brackets)) {
-            list($expect, $cur) = array_pop($brackets);
-            throw new SyntaxError(sprintf('Unclosed "%s"', $expect), $cur);
+
+        return $tokens;
+    }
+
+    /**
+     * Eats a literal such as 'This is a string.' or 'this is human\'s'.
+     *
+     * @param string $quote either ' or ".
+     */
+    private function eatString(CDataReader $source, $quote)
+    {
+        $value = '';
+
+        while (true) {
+            $value .= $source->eatCSpan('\\'.$quote);
+
+            $next = $source->read(1);
+            if ($next === $quote) {
+                return new Token(TokenType::LITERAL, stripcslashes($value));
+            } else {
+                $value .= $next;
+                $value .= $source->read(1);
+            }
+
+            if ($source->isFullyConsumed()) {
+                throw new \Exception('source consummed');
+            }
         }
-        return new TokenStream($tokens);
+    }
+
+    /**
+     * Eats an operator.
+     */
+    private function eatOperator(CDataReader $source)
+    {
+        if (null !== $operator = $source->eatAny([
+            '!==', '===', '==', '!=', // equals
+            '>=', '<=', '>', '<', // comparison
+            '**', '..', '!', '^', // magic
+            '&&', '||', // logic
+            '*', '%', '/', '+', '-', // maths
+            '~', // concatenation
+            '|', '&', // binary
+        ])) {
+            return new Token(TokenType::OPERATOR, $operator);
+        }
+
+        $state = $source->captureState();
+        foreach ([
+            'not in', 'not', 'and',
+            'or', 'in', 'matches',
+        ] as $operator) {
+            if ($source->eat($operator)) {
+                if ($source->eatWhiteSpace() || $source->peek(1) === '(') {
+                    return new Token(TokenType::OPERATOR, $operator);
+                } else {
+                    $state->restore();
+                }
+            }
+        }
     }
 }

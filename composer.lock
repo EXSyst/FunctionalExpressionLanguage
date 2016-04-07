@@ -4,9 +4,51 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "a3b5df9ffd33626e7d9e7e96b7ff1683",
-    "content-hash": "e4227f32c2779fc1e8e9e00e73f7238e",
+    "hash": "b2934127c4b94ff4ab7ef8c71f146c83",
+    "content-hash": "b5624dc5fd4e1932d9b4cb587744eb38",
     "packages": [
+        {
+            "name": "exsyst/io",
+            "version": "0.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/EXSyst/IO.git",
+                "reference": "7146c4bb0659bec19de8e7f38ac18bb57a9d65d9"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/EXSyst/IO/zipball/7146c4bb0659bec19de8e7f38ac18bb57a9d65d9",
+                "reference": "7146c4bb0659bec19de8e7f38ac18bb57a9d65d9",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.5"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "~4.1",
+                "react/event-loop": ">=0.1 <0.5"
+            },
+            "suggest": {
+                "react/event-loop": "Evented I/O : allows being called back when a stream has available data, instead of having to poll it yourself"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "EXSyst\\Component\\IO\\": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "EXSyst"
+                }
+            ],
+            "description": "Object-oriented I/O facility",
+            "time": "2015-09-14 15:54:02"
+        },
         {
             "name": "symfony/expression-language",
             "version": "v2.8.4",
