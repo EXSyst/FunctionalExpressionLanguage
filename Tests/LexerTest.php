@@ -8,42 +8,42 @@ use EXSyst\Component\FunctionalExpressionLanguage\TokenType;
 
 class LexerTest extends \PHPUnit_Framework_TestCase
 {
-    private $lexer;
-
-    protected function setUp()
+    /**
+     * @dataProvider getTokenizeData
+     */
+    public function testTokenize($tokens, $expression)
     {
-        $this->lexer = new Lexer();
+        $lexer = new Lexer();
+        $this->assertEquals($tokens, $lexer->tokenize($expression));
     }
 
-    public function testLiterals()
+    public function getTokenizeData()
     {
-        $source = <<<EOF
-            "foo"   'bar\\\\\\'foo'
-EOF;
-        $tokens = $this->lexer->tokenize($source);
-
-        $this->assertEquals([
-            new Token(TokenType::LITERAL, '"foo"'),
-            new Token(TokenType::LITERAL, '\'bar\\\\\\\'foo\''),
-        ], $tokens);
-    }
-
-    public function testOperators()
-    {
-        $source = <<<EOF
-            'foo' === 'bar'
-EOF;
-        $tokens = $this->lexer->tokenize($source);
-
-        $this->assertEquals([
-            new Token(TokenType::LITERAL, '\'foo\''),
-            new Token(TokenType::OPERATOR, '==='),
-            new Token(TokenType::LITERAL, '\'bar\''),
-        ], $tokens);
-    }
-
-    public function testSpaces()
-    {
-        $this->assertEmpty($this->lexer->tokenize("\r\t   \t\n "));
+        return [
+            'spaces' => [[], "\r\t   \t\n "],
+            'operators' => [
+                [
+                    new Token(TokenType::LITERAL, '\'foo\''),
+                    new Token(TokenType::OPERATOR, '==='),
+                    new Token(TokenType::LITERAL, '\'bar\''),
+                ],
+                "  'foo' === 'bar' \t"
+            ],
+            'literals' => [
+                [
+                    new Token(TokenType::LITERAL, '"# @ foo"'),
+                    new Token(TokenType::LITERAL, '\'bar\\\\\\\'foo\''),
+                ],
+                '"# @ foo"   \'bar\\\\\\\'foo\''
+            ],
+            'names' => [
+                [
+                    new Token(TokenType::NAME, 'my_var'),
+                    new Token(TokenType::OPERATOR, '==='),
+                    new Token(TokenType::LITERAL, '"foo"'),
+                ],
+                '  my_var === "foo" ',
+            ],
+        ];
     }
 }

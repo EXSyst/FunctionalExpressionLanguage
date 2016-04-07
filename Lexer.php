@@ -17,15 +17,19 @@ class Lexer
         }
 
         $tokens = [];
+        $source->eatWhiteSpace();
         while (!$source->isFullyConsumed()) {
-            $spaces = $source->eatWhiteSpace();
             if ($quote = $source->eatAny(['\'', '"'])) { // strings
                 $tokens[] = $this->eatString($source, $quote);
             } elseif ($operator = $this->eatOperator($source)) {
                 $tokens[] = $operator;
-            } elseif (!$spaces) {
+            } elseif ($name = $this->eatName($source)) {
+                $tokens[] = $name;
+            } else {
                 throw new \Exception(sprintf('Unexpected token %s', $source->eatToFullConsumption()));
             }
+
+            $source->eatWhiteSpace();
         }
 
         return $tokens;
@@ -86,5 +90,21 @@ class Lexer
                 }
             }
         }
+    }
+
+    /**
+     * Eats a name (may be a variable or a function call).
+     */
+    private function eatName(CDataReader $source)
+    {
+        $base = 'ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvxyz_'.implode('', range("\x7f", "\xff"));
+        static $numbers = '0123456789';
+
+        if (!$name = $source->eatSpan($base)) {
+            return;
+        }
+        $name .= $source->eatSpan($base.$numbers);
+
+        return new Token(TokenType::NAME, $name);
     }
 }
