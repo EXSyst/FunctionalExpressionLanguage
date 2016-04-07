@@ -8,6 +8,11 @@ use EXSyst\Component\IO\Reader\CDataReader;
 class Lexer
 {
     /**
+     * @internal
+     */
+    const NUMBERS_MASK = '0123456789';
+
+    /**
      * @param CDataReader|string $source
      */
     public function tokenize($source)
@@ -25,8 +30,23 @@ class Lexer
                 $tokens[] = $operator;
             } elseif ($name = $this->eatName($source)) {
                 $tokens[] = $name;
+            } elseif ($punctuation = $source->eatSpan('?:.,{[()]}', 1)) {
+                $tokens[] = new Token(TokenType::PUNCTUATION, $punctuation);
+            } elseif ($number = $source->eatSpan(self::NUMBERS_MASK)) {
+                $state = $source->captureState();
+                if  ($source->eat('.')) {
+                    $decimals = $source->eatSpan(self::NUMBERS_MASK);
+                    if ($decimals) {
+                        $tokens[] = new Token(TokenType::FLOAT, $number.'.'.$decimals);
+                    } else {
+                        $state->restore();
+                        $tokens[] = new Token(TokenType::INTEGER, $number);
+                    }
+                } else {
+                    $tokens[] = new Token(TokenType::INTEGER, $number);
+                }
             } else {
-                throw new \Exception(sprintf('Unexpected token %s', $source->eatToFullConsumption()));
+                throw new \Exception(sprintf('Unexpected token "%s"', $source->eatToFullConsumption()));
             }
 
             $source->eatWhiteSpace();
@@ -49,7 +69,7 @@ class Lexer
 
                 $next = $source->read(1);
                 if ($next === $quote) {
-                    return new Token(TokenType::LITERAL, $quote.$value.$quote);
+                    return new Token(TokenType::STRING, $quote.$value.$quote);
                 } else {
                     $value .= $next;
                     $value .= $source->read(1);
@@ -98,12 +118,11 @@ class Lexer
     private function eatName(CDataReader $source)
     {
         $base = 'ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvxyz_'.implode('', range("\x7f", "\xff"));
-        static $numbers = '0123456789';
 
         if (!$name = $source->eatSpan($base)) {
             return;
         }
-        $name .= $source->eatSpan($base.$numbers);
+        $name .= $source->eatSpan($base.self::NUMBERS_MASK);
 
         return new Token(TokenType::NAME, $name);
     }

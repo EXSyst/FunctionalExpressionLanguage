@@ -23,24 +23,39 @@ class LexerTest extends \PHPUnit_Framework_TestCase
             'spaces' => [[], "\r\t   \t\n "],
             'operators' => [
                 [
-                    new Token(TokenType::LITERAL, '\'foo\''),
+                    new Token(TokenType::STRING, '\'foo\''),
                     new Token(TokenType::OPERATOR, '==='),
-                    new Token(TokenType::LITERAL, '\'bar\''),
+                    new Token(TokenType::STRING, '\'bar\''),
                 ],
                 "  'foo' === 'bar' \t"
             ],
-            'literals' => [
+            'strings' => [
                 [
-                    new Token(TokenType::LITERAL, '"# @ foo"'),
-                    new Token(TokenType::LITERAL, '\'bar\\\\\\\'foo\''),
+                    new Token(TokenType::STRING, '"# @ foo"'),
+                    new Token(TokenType::STRING, '\'bar\\\\\\\'foo\''),
                 ],
                 '"# @ foo"   \'bar\\\\\\\'foo\''
             ],
-            'names' => [
+            'integers' => [
+                [
+                    new Token(TokenType::INTEGER, '12'),
+                    new Token(TokenType::INTEGER, '1382'),
+                ],
+                ' 12 1382'
+            ],
+            'floats' => [
+                [
+                    new Token(TokenType::FLOAT, '1.234'),
+                    new Token(TokenType::INTEGER, '54'),
+                    new Token(TokenType::PUNCTUATION, '.'),                    
+                ],
+                ' 1.234 54.'
+            ],
+            'variables' => [
                 [
                     new Token(TokenType::NAME, 'my_var'),
                     new Token(TokenType::OPERATOR, '==='),
-                    new Token(TokenType::LITERAL, '"foo"'),
+                    new Token(TokenType::STRING, '"foo"'),
                 ],
                 '  my_var === "foo" ',
             ],
