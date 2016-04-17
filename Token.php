@@ -4,8 +4,8 @@ namespace EXSyst\Component\FunctionalExpressionLanguage;
 
 class Token
 {
-    public $value;
     public $type;
+    public $value;
 
     /**
      * @param int   $type see {@link TokenType}

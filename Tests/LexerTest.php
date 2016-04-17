@@ -13,6 +13,8 @@ class LexerTest extends \PHPUnit_Framework_TestCase
      */
     public function testTokenize($tokens, $expression)
     {
+        $tokens[] = new Token(TokenType::EOF, null);
+
         $lexer = new Lexer();
         $this->assertEquals($tokens, $lexer->tokenize($expression));
     }
@@ -23,42 +25,45 @@ class LexerTest extends \PHPUnit_Framework_TestCase
             'spaces' => [[], "\r\t   \t\n "],
             'operators' => [
                 [
-                    new Token(TokenType::STRING, '\'foo\''),
-                    new Token(TokenType::OPERATOR, '==='),
-                    new Token(TokenType::STRING, '\'bar\''),
+                    new Token(TokenType::LITERAL, '\'foo\'suffix'),
+                    new Token(TokenType::PUNCTUATION, '.'),
+                    new Token(TokenType::NAME, 'bar'),
+                    new Token(TokenType::SYMBOL, '=!='),
+                    new Token(TokenType::LITERAL, '\'bar\''),
                 ],
-                "  'foo' === 'bar' \t"
+                "  'foo'suffix.bar =!= 'bar' \t",
             ],
             'strings' => [
                 [
-                    new Token(TokenType::STRING, '"# @ foo"'),
-                    new Token(TokenType::STRING, '\'bar\\\\\\\'foo\''),
+                    new Token(TokenType::LITERAL, '"# @ foo"su'),
+                    new Token(TokenType::LITERAL, '\'bar\\\\\\\'foo\'re'),
                 ],
-                '"# @ foo"   \'bar\\\\\\\'foo\''
+                '"# @ foo"su   \'bar\\\\\\\'foo\'re',
             ],
             'integers' => [
                 [
-                    new Token(TokenType::INTEGER, '12'),
-                    new Token(TokenType::INTEGER, '1382'),
+                    new Token(TokenType::LITERAL, '12d'),
+                    new Token(TokenType::LITERAL, '1382f'),
                 ],
-                ' 12 1382'
+                ' 12d 1382f',
             ],
             'floats' => [
                 [
-                    new Token(TokenType::FLOAT, '1.234'),
-                    new Token(TokenType::INTEGER, '54'),
-                    new Token(TokenType::PUNCTUATION, '.'),                    
+                    new Token(TokenType::LITERAL, '1.234f'),
+                    new Token(TokenType::LITERAL, '54.a'),
+                    new Token(TokenType::LITERAL, '3.'),
                 ],
-                ' 1.234 54.'
+                ' 1.234f 54.a 3.',
             ],
             'variables' => [
                 [
                     new Token(TokenType::NAME, 'my_var'),
-                    new Token(TokenType::OPERATOR, '==='),
-                    new Token(TokenType::STRING, '"foo"'),
+                    new Token(TokenType::SYMBOL, '==='),
+                    new Token(TokenType::LITERAL, '"foo"'),
                 ],
                 '  my_var === "foo" ',
             ],
+
         ];
     }
 }
