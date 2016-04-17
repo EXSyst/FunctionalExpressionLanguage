@@ -2,7 +2,7 @@
 
 namespace EXSyst\Component\FunctionalExpressionLanguage;
 
-use EXSyst\Component\IO\Exception\OverflowException;
+use EXSyst\Component\IO\Exception\UnderflowException;
 use EXSyst\Component\IO\Reader\CDataReader;
 
 class Lexer
@@ -11,21 +11,32 @@ class Lexer
     const NUMBERS_MASK = '0123456789';
     const PUNCTUATION_MASK = '()[]{},;:.';
     const QUOTE_MASK = '\'"';
+    const WHITE_SPACE_MASK = "\011\013\014 ";
+    const EOL_MASK = "\r\n";
+
+    private $cursor;
+    private $row;
+    private $line;
 
     /**
      * @param CDataReader|string $source
      */
     public function tokenize($source)
     {
+        $this->cursor = $this->row = $this->line = 0;
+
         if (!$source instanceof CDataReader) {
             $source = CDataReader::fromString($source);
         }
 
         $tokens = [];
-        $source->eatWhiteSpace();
         while (!$source->isFullyConsumed()) {
-            if ($punctuation = $source->eatSpan(self::PUNCTUATION_MASK, 1)) {
-                $tokens[] = new Token(TokenType::PUNCTUATION, $punctuation);
+            if ($eol = $source->eatAny(["\n\r", "\r\n", "\n", "\r"])) {
+                $tokens[] = $this->createToken(TokenType::EOL, $eol);
+            } elseif ($spaces = $source->eatSpan(self::WHITE_SPACE_MASK)) {
+                $tokens[] = $this->createToken(TokenType::WHITE_SPACE, $spaces);
+            } elseif ($punctuation = $source->eatSpan(self::PUNCTUATION_MASK, 1)) {
+                $tokens[] = $this->createToken(TokenType::PUNCTUATION, $punctuation);
             } elseif ($quote = $source->eatSpan(self::QUOTE_MASK, 1)) { // strings
                 $tokens[] = $this->eatString($source, $quote);
             } elseif ($number = $source->eatSpan(self::NUMBERS_MASK)) { // numbers
@@ -34,7 +45,7 @@ class Lexer
                 }
                 $number .= $source->eatSpan(self::BASE_MASK.self::NUMBERS_MASK);
 
-                $tokens[] = new Token(TokenType::LITERAL, $number);
+                $tokens[] = $this->createToken(TokenType::LITERAL, $number);
             } elseif ($name = $this->eatName($source)) {
                 $tokens[] = $name;
             } elseif ($symbol = $this->eatSymbol($source, $tokens)) {
@@ -42,11 +53,9 @@ class Lexer
             } else {
                 throw new \Exception(sprintf('Unexpected token "%s"', $source->eatToFullConsumption()));
             }
-
-            $source->eatWhiteSpace();
         }
 
-        $tokens[] = new Token(TokenType::EOF, null);
+        $tokens[] = $this->createToken(TokenType::EOF, null);
 
         return $tokens;
     }
@@ -67,13 +76,13 @@ class Lexer
                 if ($next === $quote) {
                     $value = $quote.$value.$quote.$source->eatSpan(self::BASE_MASK.self::NUMBERS_MASK);
 
-                    return new Token(TokenType::LITERAL, $value);
+                    return $this->createToken(TokenType::LITERAL, $value);
                 } else {
                     $value .= $next;
                     $value .= $source->read(1);
                 }
             }
-        } catch (OverflowException $exception) {
+        } catch (UnderflowException $exception) {
             throw new \RuntimeException('Unterminated string literal');
         }
     }
@@ -86,7 +95,7 @@ class Lexer
         $symbol = $source->eatCSpan(self::BASE_MASK.self::NUMBERS_MASK.self::PUNCTUATION_MASK.self::QUOTE_MASK.CDataReader::WHITE_SPACE_MASK);
 
         if ($symbol) {
-            return new Token(TokenType::SYMBOL, $symbol);
+            return $this->createToken(TokenType::SYMBOL, $symbol);
         }
     }
 
@@ -100,6 +109,25 @@ class Lexer
         }
         $name .= $source->eatSpan(self::BASE_MASK.self::NUMBERS_MASK);
 
-        return new Token(TokenType::NAME, $name);
+        return $this->createToken(TokenType::NAME, $name);
+    }
+
+    private function createToken($type, $value)
+    {
+        $token = new Token($type, $value, $this->cursor, $this->line, $this->row);
+        $this->moveCursor($value);
+
+        return $token;
+    }
+
+    private function moveCursor($value)
+    {
+        $this->cursor += strlen($value);
+        $this->row += strlen($value);
+
+        if ($lines = preg_match_all("/\r\n?|\n\r?/", $value)) {
+            $this->line += $lines;
+            $this->row = 0;
+        }
     }
 }

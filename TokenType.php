@@ -10,6 +10,8 @@ final class TokenType
     const NAME = 3;
     const PUNCTUATION = 4;
     const EOF = 5;
+    const EOL = 6;
+    const WHITE_SPACE = 7;
 
     public static function getName($type)
     {
@@ -19,6 +21,8 @@ final class TokenType
             case self::NAME: return 'NAME';
             case self::PUNCTUATION: return 'PUNCTUATION';
             case self::EOF: return 'EOF';
+            case self::EOL: return 'EOL';
+            case self::WHITE_SPACE: return 'WHITE_SPACE';
         }
     }
 }

@@ -13,8 +13,6 @@ class LexerTest extends \PHPUnit_Framework_TestCase
      */
     public function testTokenize($tokens, $expression)
     {
-        $tokens[] = new Token(TokenType::EOF, null);
-
         $lexer = new Lexer();
         $this->assertEquals($tokens, $lexer->tokenize($expression));
     }
@@ -22,48 +20,75 @@ class LexerTest extends \PHPUnit_Framework_TestCase
     public function getTokenizeData()
     {
         return [
-            'spaces' => [[], "\r\t   \t\n "],
+            'spaces' => [
+                [
+                    new Token(TokenType::EOL, "\r\n", 0, 0, 0),
+                    new Token(TokenType::WHITE_SPACE, "  \t", 2, 1, 0),
+                    new Token(TokenType::EOL, "\n", 5, 1, 3),
+                    new Token(TokenType::EOF, null, 6, 2, 0),
+                ],
+                "\r\n  \t\n"
+            ],
             'operators' => [
                 [
-                    new Token(TokenType::LITERAL, '\'foo\'suffix'),
-                    new Token(TokenType::PUNCTUATION, '.'),
-                    new Token(TokenType::NAME, 'bar'),
-                    new Token(TokenType::SYMBOL, '=!='),
-                    new Token(TokenType::LITERAL, '\'bar\''),
+                    new Token(TokenType::WHITE_SPACE, '  ', 0, 0, 0),
+                    new Token(TokenType::LITERAL, '\'foo\'suffix', 2, 0, 2),
+                    new Token(TokenType::PUNCTUATION, '.', 13, 0, 13),
+                    new Token(TokenType::NAME, 'bar', 14, 0, 14),
+                    new Token(TokenType::SYMBOL, '=!=', 17, 0, 17),
+                    new Token(TokenType::LITERAL, '\'bar\'', 20, 0, 20),
+                    new Token(TokenType::EOF, null, 25, 0, 25),
                 ],
-                "  'foo'suffix.bar =!= 'bar' \t",
+                "  'foo'suffix.bar=!='bar'",
             ],
             'strings' => [
                 [
-                    new Token(TokenType::LITERAL, '"# @ foo"su'),
-                    new Token(TokenType::LITERAL, '\'bar\\\\\\\'foo\'re'),
+                    new Token(TokenType::LITERAL, '"# @ foo"su', 0, 0, 0),
+                    new Token(TokenType::LITERAL, '\'bar\\\\\\\'foo\'re', 11, 0, 11),
+                    new Token(TokenType::EOF, null, 25, 0, 25),
                 ],
-                '"# @ foo"su   \'bar\\\\\\\'foo\'re',
+                '"# @ foo"su\'bar\\\\\\\'foo\'re',
             ],
             'integers' => [
                 [
-                    new Token(TokenType::LITERAL, '12d'),
-                    new Token(TokenType::LITERAL, '1382f'),
+                    new Token(TokenType::LITERAL, '12d', 0, 0, 0),
+                    new Token(TokenType::EOL, "\n", 3, 0, 3),
+                    new Token(TokenType::LITERAL, '1382f', 4, 1, 0),
+                    new Token(TokenType::EOF, null, 9, 1, 5),
                 ],
-                ' 12d 1382f',
+                "12d\n1382f",
             ],
             'floats' => [
                 [
-                    new Token(TokenType::LITERAL, '1.234f'),
-                    new Token(TokenType::LITERAL, '54.a'),
-                    new Token(TokenType::LITERAL, '3.'),
+                    new Token(TokenType::LITERAL, '1.234f', 0, 0, 0),
+                    new Token(TokenType::WHITE_SPACE, ' ', 6, 0, 6),
+                    new Token(TokenType::LITERAL, '54.a', 7, 0, 7),
+                    new Token(TokenType::WHITE_SPACE, ' ', 11, 0, 11),
+                    new Token(TokenType::LITERAL, '3.', 12, 0, 12),
+                    new Token(TokenType::EOF, null, 14, 0, 14),
                 ],
-                ' 1.234f 54.a 3.',
+                '1.234f 54.a 3.',
             ],
             'variables' => [
                 [
-                    new Token(TokenType::NAME, 'my_var'),
-                    new Token(TokenType::SYMBOL, '==='),
-                    new Token(TokenType::LITERAL, '"foo"'),
+                    new Token(TokenType::NAME, 'my_var', 0, 0, 0),
+                    new Token(TokenType::SYMBOL, '===', 6, 0, 6),
+                    new Token(TokenType::LITERAL, '"foo"', 9, 0, 9),
+                    new Token(TokenType::EOF, null, 14, 0, 14),
                 ],
-                '  my_var === "foo" ',
+                'my_var==="foo"',
             ],
 
         ];
+    }
+
+    /**
+     * @expectedException \RuntimeException
+     * @expectedExceptionMessage Unterminated string literal
+     */
+    public function testUnterminatedLiteral()
+    {
+        $lexer = new Lexer();
+        $lexer->tokenize('"literal');
     }
 }
