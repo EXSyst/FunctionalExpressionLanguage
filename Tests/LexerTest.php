@@ -43,11 +43,11 @@ class LexerTest extends \PHPUnit_Framework_TestCase
             ],
             'strings' => [
                 [
-                    new Token(TokenType::LITERAL, '"# @ foo"su', 0, 0, 0),
-                    new Token(TokenType::LITERAL, '\'bar\\\\\\\'foo\'re', 11, 0, 11),
-                    new Token(TokenType::EOF, null, 25, 0, 25),
+                    new Token(TokenType::LITERAL, "\"# @\n foo\"su", 0, 0, 0),
+                    new Token(TokenType::LITERAL, '\'bar\\\\\\\'foo\'re', 12, 1, 7),
+                    new Token(TokenType::EOF, null, 26, 1, 21),
                 ],
-                '"# @ foo"su\'bar\\\\\\\'foo\'re',
+                "\"# @\n foo\"su'bar\\\\\\'foo're",
             ],
             'integers' => [
                 [
@@ -78,7 +78,25 @@ class LexerTest extends \PHPUnit_Framework_TestCase
                 ],
                 'my_var==="foo"',
             ],
-
+            'single_line_comments' => [
+                [
+                    new Token(TokenType::NAME, 'foo', 0, 0, 0),
+                    new Token(TokenType::COMMENT, '// my comment === "super"', 3, 0, 3),
+                    new Token(TokenType::EOL, "\n\r", 28, 0, 28),
+                    new Token(TokenType::NAME, 'bar', 30, 1, 0),
+                    new Token(TokenType::EOL, "\r", 33, 1, 3),
+                    new Token(TokenType::COMMENT, '-- hello world', 34, 2, 0),
+                    new Token(TokenType::EOF, null, 48, 2, 14),
+                ],
+                "foo// my comment === \"super\"\n\rbar\r-- hello world"
+            ],
+            'multi_line_comments' => [
+                [
+                    new Token(TokenType::COMMENT, "/* my long\ncomment*/", 0, 0, 0),
+                    new Token(TokenType::EOF, null, 20, 1, 9),
+                ],
+                "/* my long\ncomment*/"
+            ]
         ];
     }
 

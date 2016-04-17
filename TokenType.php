@@ -12,6 +12,7 @@ final class TokenType
     const EOF = 5;
     const EOL = 6;
     const WHITE_SPACE = 7;
+    const COMMENT = 7;
 
     public static function getName($type)
     {
@@ -23,6 +24,7 @@ final class TokenType
             case self::EOF: return 'EOF';
             case self::EOL: return 'EOL';
             case self::WHITE_SPACE: return 'WHITE_SPACE';
+            case self::COMMENT: return 'COMMENT';
         }
     }
 }

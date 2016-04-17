@@ -33,6 +33,25 @@ class Lexer
         while (!$source->isFullyConsumed()) {
             if ($eol = $source->eatAny(["\n\r", "\r\n", "\n", "\r"])) {
                 $tokens[] = $this->createToken(TokenType::EOL, $eol);
+            } elseif ($commentTag = $source->eatAny(['//', '--', '#'])) {
+                $comment = $commentTag.$source->eatCSpan(self::EOL_MASK);
+                $tokens[] = $this->createToken(TokenType::COMMENT, $comment);
+            } elseif ($source->eat('/*')) {
+                $comment = '/*';
+                try {
+                    while (true) {
+                        $comment .= $source->eatCSpan('*');
+                        if ($source->eat('*/')) {
+                            $comment .= '*/';
+                            $tokens[] = $this->createToken(TokenType::COMMENT, $comment);
+                            break;
+                        } else {
+                            $comment .= $source->read(1);
+                        }
+                    }
+                } catch (UnderflowException $exception) {
+                    throw new \RuntimeException('Unclosed comment');
+                }
             } elseif ($spaces = $source->eatSpan(self::WHITE_SPACE_MASK)) {
                 $tokens[] = $this->createToken(TokenType::WHITE_SPACE, $spaces);
             } elseif ($punctuation = $source->eatSpan(self::PUNCTUATION_MASK, 1)) {
@@ -83,7 +102,7 @@ class Lexer
                 }
             }
         } catch (UnderflowException $exception) {
-            throw new \RuntimeException('Unterminated string literal');
+            throw new \RuntimeException(sprintf('Unterminated string literal (line %d, row %d)', $this->line, $this->row));
         }
     }
 
@@ -127,7 +146,7 @@ class Lexer
 
         if ($lines = preg_match_all("/\r\n?|\n\r?/", $value)) {
             $this->line += $lines;
-            $this->row = 0;
+            $this->row = strlen($value) - max(strpos($value, "\r"), strpos($value, "\n")) - 1;
         }
     }
 }
