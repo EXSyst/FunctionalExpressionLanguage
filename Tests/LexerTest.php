@@ -43,11 +43,11 @@ class LexerTest extends \PHPUnit_Framework_TestCase
             ],
             'strings' => [
                 [
-                    new Token(TokenType::LITERAL, "\"# @\n foo\"su", 0, 0, 0),
-                    new Token(TokenType::LITERAL, '\'bar\\\\\\\'foo\'re', 12, 1, 7),
-                    new Token(TokenType::EOF, null, 26, 1, 21),
+                    new Token(TokenType::LITERAL, "\"# @\n\n foo\"su", 0, 0, 0),
+                    new Token(TokenType::LITERAL, '\'bar\\\\\\\'foo\'re', 13, 2, 7),
+                    new Token(TokenType::EOF, null, 27, 2, 21),
                 ],
-                "\"# @\n foo\"su'bar\\\\\\'foo're",
+                "\"# @\n\n foo\"su'bar\\\\\\'foo're",
             ],
             'integers' => [
                 [

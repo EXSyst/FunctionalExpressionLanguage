@@ -146,7 +146,7 @@ class Lexer
 
         if ($lines = preg_match_all("/\r\n?|\n\r?/", $value)) {
             $this->line += $lines;
-            $this->row = strlen($value) - max(strpos($value, "\r"), strpos($value, "\n")) - 1;
+            $this->row = strlen($value) - max(strrpos($value, "\r"), strrpos($value, "\n")) - 1;
         }
     }
 }
