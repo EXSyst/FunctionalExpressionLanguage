@@ -4,6 +4,7 @@ namespace EXSyst\Component\FunctionalExpressionLanguage;
 
 use EXSyst\Component\IO\Exception\UnderflowException;
 use EXSyst\Component\IO\Reader\CDataReader;
+use EXSyst\Component\FunctionalExpressionLanguage\ParserInterface;
 
 class Lexer
 {
@@ -14,28 +15,29 @@ class Lexer
     const WHITE_SPACE_MASK = "\011\013\014 ";
     const EOL_MASK = "\r\n";
 
-    private $cursor;
-    private $row;
-    private $line;
+    private $parser;
+    private $cursor = 0;
+    private $row = 0;
+    private $line = 0;
 
     /**
      * @param CDataReader|string $source
+     * @param Parser             $parser the Parser to call when a new token is discovered
      */
-    public function tokenize($source)
+    public function __construct($source, ParserInterface $parser)
     {
-        $this->cursor = $this->row = $this->line = 0;
+        $this->parser = $parser;
 
         if (!$source instanceof CDataReader) {
             $source = CDataReader::fromString($source);
         }
 
-        $tokens = [];
         while (!$source->isFullyConsumed()) {
             if ($eol = $source->eatAny(["\n\r", "\r\n", "\n", "\r"])) {
-                $tokens[] = $this->createToken(TokenType::EOL, $eol);
+                $this->sendToken(TokenType::EOL, $eol);
             } elseif ($commentTag = $source->eatAny(['//', '--', '#'])) {
                 $comment = $commentTag.$source->eatCSpan(self::EOL_MASK);
-                $tokens[] = $this->createToken(TokenType::COMMENT, $comment);
+                $this->sendToken(TokenType::COMMENT, $comment);
             } elseif ($source->eat('/*')) {
                 $comment = '/*';
                 try {
@@ -43,7 +45,8 @@ class Lexer
                         $comment .= $source->eatCSpan('*');
                         if ($source->eat('*/')) {
                             $comment .= '*/';
-                            $tokens[] = $this->createToken(TokenType::COMMENT, $comment);
+                            $this->sendToken(TokenType::COMMENT, $comment);
+
                             break;
                         } else {
                             $comment .= $source->read(1);
@@ -53,30 +56,24 @@ class Lexer
                     throw new \RuntimeException('Unclosed comment');
                 }
             } elseif ($spaces = $source->eatSpan(self::WHITE_SPACE_MASK)) {
-                $tokens[] = $this->createToken(TokenType::WHITE_SPACE, $spaces);
+                $this->sendToken(TokenType::WHITE_SPACE, $spaces);
             } elseif ($punctuation = $source->eatSpan(self::PUNCTUATION_MASK, 1)) {
-                $tokens[] = $this->createToken(TokenType::PUNCTUATION, $punctuation);
+                $this->sendToken(TokenType::PUNCTUATION, $punctuation);
             } elseif ($quote = $source->eatSpan(self::QUOTE_MASK, 1)) { // strings
-                $tokens[] = $this->eatString($source, $quote);
+                $this->eatString($source, $quote);
             } elseif ($number = $source->eatSpan(self::NUMBERS_MASK)) { // numbers
                 if ($source->eat('.')) {
                     $number .= '.';
                 }
                 $number .= $source->eatSpan(self::BASE_MASK.self::NUMBERS_MASK);
 
-                $tokens[] = $this->createToken(TokenType::LITERAL, $number);
-            } elseif ($name = $this->eatName($source)) {
-                $tokens[] = $name;
-            } elseif ($symbol = $this->eatSymbol($source, $tokens)) {
-                $tokens[] = $symbol;
-            } else {
+                $this->sendToken(TokenType::LITERAL, $number);
+            } elseif (!$this->eatName($source) && !$this->eatSymbol($source)) {
                 throw new \Exception(sprintf('Unexpected token "%s"', $source->eatToFullConsumption()));
             }
         }
 
-        $tokens[] = $this->createToken(TokenType::EOF, null);
-
-        return $tokens;
+        $this->sendToken(TokenType::EOF, null);
     }
 
     /**
@@ -95,7 +92,7 @@ class Lexer
                 if ($next === $quote) {
                     $value = $quote.$value.$quote.$source->eatSpan(self::BASE_MASK.self::NUMBERS_MASK);
 
-                    return $this->createToken(TokenType::LITERAL, $value);
+                    return $this->sendToken(TokenType::LITERAL, $value);
                 } else {
                     $value .= $next;
                     $value .= $source->read(1);
@@ -114,8 +111,10 @@ class Lexer
         $symbol = $source->eatCSpan(self::BASE_MASK.self::NUMBERS_MASK.self::PUNCTUATION_MASK.self::QUOTE_MASK.CDataReader::WHITE_SPACE_MASK);
 
         if ($symbol) {
-            return $this->createToken(TokenType::SYMBOL, $symbol);
+            $this->sendToken(TokenType::SYMBOL, $symbol);
         }
+
+        return $symbol;
     }
 
     /**
@@ -124,19 +123,18 @@ class Lexer
     private function eatName(CDataReader $source)
     {
         if (!$name = $source->eatSpan(self::BASE_MASK)) {
-            return;
+            return false;
         }
         $name .= $source->eatSpan(self::BASE_MASK.self::NUMBERS_MASK);
+        $this->sendToken(TokenType::NAME, $name);
 
-        return $this->createToken(TokenType::NAME, $name);
+        return true;
     }
 
-    private function createToken($type, $value)
+    private function sendToken($type, $value)
     {
-        $token = new Token($type, $value, $this->cursor, $this->line, $this->row);
+        $this->parser->accept(new Token($type, $value, $this->cursor, $this->line, $this->row));
         $this->moveCursor($value);
-
-        return $token;
     }
 
     private function moveCursor($value)

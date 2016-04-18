@@ -5,6 +5,7 @@ namespace EXSyst\Component\FunctionalExpressionLanguage\Tests;
 use EXSyst\Component\FunctionalExpressionLanguage\Lexer;
 use EXSyst\Component\FunctionalExpressionLanguage\Token;
 use EXSyst\Component\FunctionalExpressionLanguage\TokenType;
+use EXSyst\Component\FunctionalExpressionLanguage\ParserInterface;
 
 class LexerTest extends \PHPUnit_Framework_TestCase
 {
@@ -13,8 +14,9 @@ class LexerTest extends \PHPUnit_Framework_TestCase
      */
     public function testTokenize($tokens, $expression)
     {
-        $lexer = new Lexer();
-        $this->assertEquals($tokens, $lexer->tokenize($expression));
+        $parser = new DummyParser();
+        $lexer = new Lexer($expression, $parser);
+        $this->assertEquals($tokens, $parser->tokens);
     }
 
     public function getTokenizeData()
@@ -106,7 +108,16 @@ class LexerTest extends \PHPUnit_Framework_TestCase
      */
     public function testUnterminatedLiteral()
     {
-        $lexer = new Lexer();
-        $lexer->tokenize('"literal');
+        $lexer = new Lexer('"literal', new DummyParser());
+    }
+}
+
+class DummyParser implements ParserInterface
+{
+    public $tokens = [];
+
+    public function accept(Token $token)
+    {
+        $this->tokens[] = $token;
     }
 }

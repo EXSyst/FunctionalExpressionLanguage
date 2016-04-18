@@ -1,40 +1,19 @@
 <?php
 
-/*
- * This file is part of the Symfony package.
- *
- * (c) Fabien Potencier <fabien@symfony.com>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
-use Symfony\Component\ExpressionLanguage\Compiler;
-
-/**
- * @author Fabien Potencier <fabien@symfony.com>
- *
- * @internal
- */
-class NameNode extends Node
+final class NameNode extends Node
 {
-    public function __construct($name)
+    private $name;
+    private $parent;
+
+    public function __construct(string $name)
     {
-        parent::__construct(
-            array(),
-            array('name' => $name)
-        );
+        $this->name = $name;
     }
 
-    public function compile(Compiler $compiler)
+    public function getName()
     {
-        $compiler->raw('$'.$this->attributes['name']);
-    }
-
-    public function evaluate($functions, $values)
-    {
-        return $values[$this->attributes['name']];
+        return $this->name;
     }
 }

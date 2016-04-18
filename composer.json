@@ -1,7 +1,6 @@
 {
     "require": {
         "php": "^7.0",
-        "symfony/expression-language": "^2.8",
         "exsyst/io": "^0.1",
         "nikic/php-parser": "^2.0"
     },
