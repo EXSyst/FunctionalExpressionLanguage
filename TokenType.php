@@ -12,7 +12,7 @@ final class TokenType
     const EOF = 5;
     const EOL = 6;
     const WHITE_SPACE = 7;
-    const COMMENT = 7;
+    const COMMENT = 8;
 
     public static function getName($type)
     {

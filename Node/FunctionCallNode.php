@@ -5,7 +5,7 @@ namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 final class FunctionCallNode extends Node
 {
     private $name;
-    private $arguments = [];
+    private $arguments;
 
     /**
      * @param NameNode        $name
@@ -13,12 +13,8 @@ final class FunctionCallNode extends Node
      */
     public function __construct(NameNode $name, array $arguments = array())
     {
-        $name->setParent($this);
         $this->name = $name;
-
-        foreach ($arguments as $argument) {
-            $this->addArgument($argument);
-        }
+        $this->arguments = $arguments;
     }
 
     public function getName()
@@ -34,6 +30,5 @@ final class FunctionCallNode extends Node
     public function addArgument(Node $argument)
     {
         $this->arguments[] = $argument;
-        $argument->setParent($this);
     }
 }

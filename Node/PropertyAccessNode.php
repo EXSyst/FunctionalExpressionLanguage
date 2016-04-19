@@ -15,9 +15,6 @@ final class PropertyAccessNode extends Node
     {
         $this->object = $object;
         $this->property = $property;
-        
-        $object->setParent($this);
-        $property->setParent($this);
     }
 
     public function getObject()

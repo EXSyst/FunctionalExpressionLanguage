@@ -24,8 +24,5 @@ class ArrayNode extends Node
         }
 
         $this->elements[$key] = $value;
-
-        $value->setParent($this);
-        $key->setParent($this);
     }
 }

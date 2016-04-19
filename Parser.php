@@ -1,12 +1,15 @@
 <?php
 
 namespace EXSyst\Component\FunctionalExpressionLanguage;
+
+use EXSyst\Component\FunctionalExpressionLanguage\Exception\UnexpectedTokenException;
+use EXSyst\Component\FunctionalExpressionLanguage\Library\Operator;
 use EXSyst\Component\FunctionalExpressionLanguage\Node\Node;
 use EXSyst\Component\FunctionalExpressionLanguage\Node\RootNode;
 use EXSyst\Component\FunctionalExpressionLanguage\Node\NameNode;
+use EXSyst\Component\FunctionalExpressionLanguage\Node\LiteralNode;
 use EXSyst\Component\FunctionalExpressionLanguage\Node\UncertainNode;
 use EXSyst\Component\FunctionalExpressionLanguage\Node\FunctionCallNode;
-use EXSyst\Component\FunctionalExpressionLanguage\Library\Operator;
 use EXSyst\Component\FunctionalExpressionLanguage\Parser\EOFTokenProcessor;
 use EXSyst\Component\FunctionalExpressionLanguage\Parser\NameTokenProcessor;
 use EXSyst\Component\FunctionalExpressionLanguage\Parser\NameNodeTransformer;
@@ -32,6 +35,7 @@ class Parser implements ParserInterface
 
         $this->root = new RootNode();
         $this->generator = $this->parse();
+        $this->tokens = new TokenIterator();
     }
 
     public function getRootNode()
@@ -41,10 +45,17 @@ class Parser implements ParserInterface
 
     public function accept(Token $token)
     {
-        $this->generator->send($token);
+        // We do not use WHITE_SPACE, COMMENT and EOL
+        if ($this->test($token, TokenType::WHITE_SPACE) || $this->test($token, TokenType::EOL) || $this->test($token, TokenType::COMMENT)) {
+            return;
+        }
 
-        // Replay tokens
-        for (; count($this->tokens); $token = array_shift($this->tokens)) {
+        $this->tokens->append($token);
+
+        while ($this->tokens->valid()) {
+            $token = $this->tokens->current();
+            $this->tokens->next();
+
             $this->generator->send($token);
         }
     }
@@ -53,9 +64,9 @@ class Parser implements ParserInterface
     {
         $node = yield from $this->parseExpression();
 
-        $lastToken = yield;
-        if (!$lastToken || !$this->test($lastToken, TokenType::EOF)) {
-            throw new \LogicException(sprintf('Unexpected token "%s" of value "%s".', TokenType::getName($lastToken->type), $lastToken->value));
+        $token = yield;
+        if (!$token || !$this->test($token, TokenType::EOF)) {
+            throw new UnexpectedTokenException($token, TokenType::EOF);
         }
 
         $this->root->setNode($node);
@@ -63,23 +74,20 @@ class Parser implements ParserInterface
 
     private function parseExpression(): \Generator
     {
-        if ($function = yield from $this->tryParseFunction()) {
-            return $function;
-        } elseif ($name = yield from $this->tryParseName()) {
-            return $name;
-        } else {
-            $token = yield;
-
-            throw new \RuntimeException(sprintf('Unexpected token of type "%s" and value "%s"', TokenType::getName($token->type), $token->value));
+        if (($node = yield from $this->tryParseFunctionCall())
+            || ($node = yield from $this->tryParseName())
+            || ($node = yield from $this->tryParseLiteral())) {
+            return $node;
         }
+
+        throw new UnexpectedTokenException(yield);
     }
 
-    private function tryParseFunction()
+    private function tryParseFunctionCall(): \Generator
     {
         try {
             $function = yield from $this->transact(function() {
-                $name = yield;
-                if (!$this->test($name, TokenType::NAME) || !$this->test(yield, TokenType::PUNCTUATION, '(')) {
+                if (!$this->test($name = yield, TokenType::NAME) || !$this->test(yield, TokenType::PUNCTUATION, '(')) {
                     throw new \RuntimeException('not a function');
                 }
 
@@ -103,25 +111,49 @@ class Parser implements ParserInterface
         while (true) {
             $function->addArgument(yield from $this->parseExpression());
 
-            $token = yield;
-            if ($this->test($token, TokenType::PUNCTUATION, ')')) {
+            if ($this->test($token = yield, TokenType::PUNCTUATION, ')')) {
                 return $function;
             } elseif (!$this->test($token, TokenType::PUNCTUATION, ',')) {
-                throw new \RuntimeException('Syntax error: expected ","');
+                throw new UnexpectedTokenException($token, TokenType::PUNCTUATION, ',');
             }
         }
     }
 
-    private function tryParseName()
+    private function tryParseName(): \Generator
     {
         try {
             return yield from $this->transact(function() {
-                $name = yield;
-                if (!$this->test($name, TokenType::NAME)) {
-                    throw new \RuntimeException('not a name');
+                if (!$this->test($name = yield, TokenType::NAME)) {
+                    throw new \RuntimeException();
                 }
 
                 return new NameNode($name->value);
+            });
+        } catch (\RuntimeException $e) {
+            return false;
+        }
+    }
+
+    private function tryParseLiteral(): \Generator
+    {
+        try {
+            return yield from $this->transact(function() {
+                if (!$this->test($literal = yield, TokenType::LITERAL)) {
+                    throw new \RuntimeException();
+                }
+
+                $value = $literal->value;
+                // strings
+                if ($pos = max(strrpos($value, '"'), strrpos($value, '\''))) {
+                    return new LiteralNode(substr($value, 1, $pos - 1), substr($value, $pos + 1));
+                }
+
+                preg_match('/^([0-9]+)(\.[0-9]*)?([^0-9\.]*)$/', $value, $matches);
+                if ($matches[1]) {
+                    return new LiteralNode(floatval($matches[1].$matches[2]), $matches[3]);
+                }
+
+                return new LiteralNode(intval($matches[1]), $matches[3]);
             });
         } catch (\RuntimeException $e) {
             return false;
@@ -142,27 +174,14 @@ class Parser implements ParserInterface
      */
     private function transact(callable $fn): \Generator
     {
-        $tokens = [];
+        $state = $this->tokens->key();
         try {
-            $generator = call_user_func($fn);
-            while (true) {
-                if (!$generator->valid()) {
-                    break;
-                }
-                $generator->send($tokens[] = yield);
-            }
-
-            return $generator->getReturn();
+            return yield from call_user_func($fn);
         } catch (\Exception $e) {
-            $this->rewind($tokens);
+            $this->tokens->seek($state);
 
             throw $e;
         }
-    }
-
-    private function rewind(array $tokens)
-    {
-        $this->tokens = array_merge($this->tokens, $tokens);
     }
 
     private function test(Token $token, $type, $value = null)

@@ -73,7 +73,7 @@ class Lexer
             }
         }
 
-        $this->sendToken(TokenType::EOF, null);
+        $this->sendToken(TokenType::EOF);
     }
 
     /**
@@ -81,7 +81,7 @@ class Lexer
      *
      * @param string $quote either ' or ".
      */
-    private function eatString(CDataReader $source, $quote)
+    private function eatString(CDataReader $source, string $quote)
     {
         $value = '';
         try {
@@ -106,7 +106,7 @@ class Lexer
     /**
      * Eats a symbol (!=, and all non previously treated caracters).
      */
-    private function eatSymbol(CDataReader $source)
+    private function eatSymbol(CDataReader $source): bool
     {
         $symbol = $source->eatCSpan(self::BASE_MASK.self::NUMBERS_MASK.self::PUNCTUATION_MASK.self::QUOTE_MASK.CDataReader::WHITE_SPACE_MASK);
 
@@ -120,7 +120,7 @@ class Lexer
     /**
      * Eats a name (may be a variable or a function call).
      */
-    private function eatName(CDataReader $source)
+    private function eatName(CDataReader $source): bool
     {
         if (!$name = $source->eatSpan(self::BASE_MASK)) {
             return false;
@@ -131,13 +131,13 @@ class Lexer
         return true;
     }
 
-    private function sendToken($type, $value)
+    private function sendToken(int $type, string $value = null)
     {
         $this->parser->accept(new Token($type, $value, $this->cursor, $this->line, $this->row));
         $this->moveCursor($value);
     }
 
-    private function moveCursor($value)
+    private function moveCursor(string $value = null)
     {
         $this->cursor += strlen($value);
         $this->row += strlen($value);

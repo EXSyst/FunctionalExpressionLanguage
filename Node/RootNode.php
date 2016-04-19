@@ -17,9 +17,4 @@ final class RootNode extends Node
     {
         $this->node = $node;
     }
-
-    public function setParent(Node $parent)
-    {
-        throw new \LogicException('A root node can\'t have a parent.');
-    }
 }
