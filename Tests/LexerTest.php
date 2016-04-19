@@ -51,6 +51,14 @@ class LexerTest extends \PHPUnit_Framework_TestCase
                 ],
                 "\"# @\n\n foo\"su'bar\\\\\\'foo're",
             ],
+            'strings quoted with ``' => [
+                [
+                    new Token(TokenType::LITERAL, "`foo`su", 0, 0, 0),
+                    new Token(TokenType::LITERAL, '`bar`', 7, 0, 7),
+                    new Token(TokenType::EOF, null, 12, 0, 12),
+                ],
+                "`foo`su`bar`",
+            ],
             'integers' => [
                 [
                     new Token(TokenType::LITERAL, '12d', 0, 0, 0),
