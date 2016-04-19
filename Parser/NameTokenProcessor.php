@@ -8,14 +8,16 @@ use EXSyst\Component\FunctionalExpressionLanguage\Parser;
 use EXSyst\Component\FunctionalExpressionLanguage\TokenType;
 use EXSyst\Component\FunctionalExpressionLanguage\Token;
 
-class NameNodeTransformer implements TokenTransformerInterface
+class NameTokenProcessor implements TokenProcessorInterface
 {
     /**
      * {@inheritdoc}
      */
-    public function transform(Token $token, Parser $parser)
+    public function process(Token $token, Parser $parser)
     {
-        $node = new Node\UncertainNode(new Node\NameNode($token->value));
+        $node = new Node\ExpressionNode(new Node\NameNode($token->value));
+
+        $currentNode = $parser->getCurrentNode();
     }
 
     /**
@@ -24,7 +26,7 @@ class NameNodeTransformer implements TokenTransformerInterface
     public function supports(Token $token, Parser $parser): bool
     {
         $currentNode = $parser->getCurrentNode();
-        
-        return TokenType::NAME === $token && Parser::STATE_DEFAULT === $parser->getState();
+
+        return TokenType::NAME === $token->type && Parser::STATE_DEFAULT === $parser->getState();
     }
 }

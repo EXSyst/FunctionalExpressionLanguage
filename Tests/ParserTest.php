@@ -7,8 +7,9 @@ use EXSyst\Component\FunctionalExpressionLanguage\Token;
 use EXSyst\Component\FunctionalExpressionLanguage\Parser;
 use EXSyst\Component\FunctionalExpressionLanguage\TokenType;
 use EXSyst\Component\FunctionalExpressionLanguage\ParserInterface;
+use EXSyst\Component\FunctionalExpressionLanguage\Node;
 
-class LexerTest extends \PHPUnit_Framework_TestCase
+class ParserTest extends \PHPUnit_Framework_TestCase
 {
     /**
      * @dataProvider getTokenizeData
@@ -23,9 +24,13 @@ class LexerTest extends \PHPUnit_Framework_TestCase
     public function getTokenizeData()
     {
         return [
+            'function' =>[
+                new Node\RootNode(new Node\FunctionCallNode(new Node\NameNode('foo'))),
+                'foo()',
+            ],
             'names' => [
-                new RootNode(new UncertainNode(new NameNode('foo'))),
-                'foo',
+                new Node\RootNode(new Node\FunctionCallNode(new Node\NameNode('foo'))),
+                'foo(bar, foo)',
             ]
         ];
     }

@@ -1,84 +1,130 @@
 <?php
 
 namespace EXSyst\Component\FunctionalExpressionLanguage;
+use EXSyst\Component\FunctionalExpressionLanguage\Node\Node;
 use EXSyst\Component\FunctionalExpressionLanguage\Node\RootNode;
+use EXSyst\Component\FunctionalExpressionLanguage\Node\NameNode;
+use EXSyst\Component\FunctionalExpressionLanguage\Node\UncertainNode;
+use EXSyst\Component\FunctionalExpressionLanguage\Node\FunctionCallNode;
 use EXSyst\Component\FunctionalExpressionLanguage\Library\Operator;
+use EXSyst\Component\FunctionalExpressionLanguage\Parser\EOFTokenProcessor;
+use EXSyst\Component\FunctionalExpressionLanguage\Parser\NameTokenProcessor;
 use EXSyst\Component\FunctionalExpressionLanguage\Parser\NameNodeTransformer;
+use EXSyst\Component\FunctionalExpressionLanguage\Token;
+use EXSyst\Component\FunctionalExpressionLanguage\TokenType;
 
 class Parser implements ParserInterface
 {
-    /**
-     * Default state, accept any expression.
-     */
-    const STATE_DEFAULT = 0;
-    /**
-     * Extension state, check if the current expression can be extended.
-     */
-    const STATE_EXTENSION = 0;
-    /**
-     * Incomplete state, the parser needs a character such as a parenthesis.
-     */
-    const STATE_INCOMPLETE = 1;
-
     private $root;
-    private $currentNode;
-    private $state = self::STATE_DEFAULT;
-    private $finished = false;
+    private $generator;
     private $operators = array();
-    private $tokenTransformers;
+
+    private $saveState = false;
+    private $tokens = [];
 
     /**
      * @param Operator[] $operators
      */
-    public function __construct(array $operators)
+    public function __construct(array $operators = array())
     {
-        $this->tokenTransformers = [
-            new NameNodeTransformer(),
-        ];
-
         foreach($operators as $operator) {
             $this->registerOperator($operator);
         }
 
-        $this->currentNode = $this->root = new RootNode();
+        $this->root = new RootNode();
+        $this->generator = $this->parse();
     }
 
-    public function accept(Token $token)
-    {
-        foreach ($this->tokenTransformers as $transformer) {
-            if ($transformer->supports($token, $this)) {
-                $transformer->transform($token, $this);
-
-                return;
-            }
-        }
-
-        throw new \LogicException(sprintf('Unexpected token "%s" of value "%s".', TokenType::getName($token->type), $token->value));
-    }
-
-    public function getState(): int
-    {
-        return $this->state;
-    }
-
-    public function setState(int $state)
-    {
-        $this->state = $state;
-    }
-
-    public function getRootNode(): Node
+    public function getRootNode()
     {
         return $this->root;
     }
 
-    public function getCurrentNode(): Node
+    public function accept(Token $token)
     {
-        return $this->currentNode;
+        if ($this->saveState) {
+            $this->tokens[] = $token;
+        }
+        $this->generator->send($token);
     }
 
-    public function setCurrentNode(Node $node)
+    private function parse(): \Generator
     {
-        $this->currentNode = $node;
+        $node = yield from $this->parseExpression();
+
+        $lastToken = yield;
+        if (!$lastToken || !$this->test($lastToken, TokenType::EOF)) {
+            throw new \LogicException(sprintf('Unexpected token "%s" of value "%s".', TokenType::getName($lastToken->type), $lastToken->value));
+        }
+
+        $this->root->setNode($node);
+    }
+
+    private function parseExpression(): \Generator
+    {
+        if ($function = yield from $this->tryParseFunction()) {
+            return $function;
+        } elseif ($name = yield from $this->tryParseName()) {
+            return $name;
+        } else {
+            $token = yield;
+
+            throw new \RuntimeException(sprintf('Unexpected token of type "%s" and value "%s"', TokenType::getName($token->type), $token->value));
+        }
+    }
+
+    private function tryParseFunction()
+    {
+        try {
+            $function = yield from $this->transact(function() {
+                $name = yield;
+                if (!$this->test($name, TokenType::NAME) || !$this->test(yield, TokenType::PUNCTUATION, '(')) {
+                    throw new \RuntimeException('not a function');
+                }
+
+                return new FunctionCallNode(new NameNode($name->value));
+            });
+        } catch (\RuntimeException $e) {
+            return false;
+        }
+
+        try {
+            yield from $this->transact(function () {
+                if (!$this->test(yield, TokenType::PUNCTUATION, ')')) {
+                    throw new \Exception();
+                }
+            });
+
+            return $function;
+        } catch (\Exception $e) {
+        }
+
+        while (true) {
+            $function->addArgument(yield from $this->parseExpression());
+
+            $token = yield;
+            if ($this->test($token, TokenType::PUNCTUATION, ')')) {
+                return $function;
+            } elseif (!$this->test($token, TokenType::PUNCTUATION, ',')) {
+                throw new \RuntimeException('Syntax error: expected ","');
+            }
+        }
+    }
+
+    private function tryParseName()
+    {
+        try {
+            return yield from $this->transact(function() {
+                $name = yield;
+                if (!$this->test($name, TokenType::NAME)) {
+                    throw new \RuntimeException('not a name');
+                }
+
+                return new NameNode($name->value);
+            });
+        } catch (\RuntimeException $e) {
+            return false;
+        }
     }
 
     private function registerOperator(Operator $operator)
@@ -95,17 +141,28 @@ class Parser implements ParserInterface
      */
     private function transact(callable $fn): \Generator
     {
-        $state = $this->state;
+        $this->saveState = true;
         try {
             return yield from call_user_func($fn);
         } catch (\Exception $e) {
-            $this->state = $state;
+            $this->rewind();
 
             throw $e;
         }
     }
 
-    private function test(TokenInterface $token, $type, $value = null)
+    private function rewind()
+    {
+        $tokens = $this->tokens;
+        $this->saveState = false;
+        $this->tokens = [];
+
+        foreach($this->tokens as $token) {
+            $this->accept($token);
+        }
+    }
+
+    private function test(Token $token, $type, $value = null)
     {
         return $token->type === $type && (null === $value || $token->value === $value);
     }
