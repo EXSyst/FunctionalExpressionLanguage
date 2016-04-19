@@ -16,7 +16,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase
      */
     public function testTokenize($node, $expression)
     {
-        $this->assertEquals(new Node\RootNode($node), $this->getNode($expression));
+        $this->assertEquals(new Node\ScopeNode(array(), $node), $this->getNode($expression));
     }
 
     public function getTokenizeData()
@@ -57,7 +57,22 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                 ),
                 'foo("my_string"suffixed, \'my_other_string\', 32bar, 1.23kg)',
             ],
+            'scopes' => [
+                new Node\ScopeNode(
+                    [
+                        'bar' => new Node\ScopeNode(['baz' => new Node\LiteralNode(4)], new Node\NameNode('baz')),
+                        'foo' => new Node\FunctionCallNode(new Node\NameNode('foo'), [new Node\NameNode('bar')]),
+                    ],
+                    new Node\NameNode('foo')
+                ),
+                '(bar: (baz: 4; baz); foo: foo(bar); foo)'
+            ]
         ];
+    }
+
+    public function testRootScope()
+    {
+        $this->assertEquals(new Node\ScopeNode(['bar' => new Node\LiteralNode('foo')], new Node\LiteralNode('bar')), $this->getNode('bar: "foo"; "bar"'));
     }
 
     /**

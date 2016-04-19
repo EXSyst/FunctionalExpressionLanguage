@@ -7,7 +7,7 @@ final class LiteralNode extends Node
     private $value;
     private $suffix;
 
-    public function __construct($value, $suffix)
+    public function __construct($value, string $suffix = '')
     {
         $this->value = $value;
         $this->suffix = $suffix;

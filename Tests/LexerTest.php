@@ -57,7 +57,16 @@ class LexerTest extends \PHPUnit_Framework_TestCase
                     new Token(TokenType::LITERAL, '`bar`', 7, 0, 7),
                     new Token(TokenType::EOF, null, 12, 0, 12),
                 ],
-                "`foo`su`bar`",
+                '`foo`su`bar`',
+            ],
+            'quotes following' => [
+                [
+                    new Token(TokenType::LITERAL, '`foo```', 0, 0, 0),
+                    new Token(TokenType::WHITE_SPACE, ' ', 7, 0, 7),
+                    new Token(TokenType::LITERAL, '"bar"" baz"', 8, 0, 8),
+                    new Token(TokenType::EOF, null, 19, 0, 19),
+                ],
+                '`foo``` "bar"" baz"',
             ],
             'integers' => [
                 [

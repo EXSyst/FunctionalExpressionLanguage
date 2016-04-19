@@ -4,10 +4,6 @@ namespace EXSyst\Component\FunctionalExpressionLanguage\Exception;
 
 use EXSyst\Component\FunctionalExpressionLanguage\Token;
 
-class SyntaxException extends \LogicException
+class SyntaxException extends ParsingException
 {
-    public function __construct($message, Token $token)
-    {
-        parent::__construct(sprintf('%s (at position %d, line %d, row %d)', $message, $token->cursor, $token->line, $token->row));
-    }
 }

@@ -1,9 +1,10 @@
 <?php
 
 namespace EXSyst\Component\FunctionalExpressionLanguage;
+
 use EXSyst\Component\FunctionalExpressionLanguage\Token;
 
-class TokenIterator implements \SeekableIterator
+class TokenIterator
 {
     private $position = 0;
     private $tokens = [];
@@ -13,16 +14,8 @@ class TokenIterator implements \SeekableIterator
         $this->tokens[] = $token;
     }
 
-    public function seek($position) {
-      if (!isset($this->tokens[$position])) {
-          throw new \OutOfBoundsException("invalid seek position ($position)");
-      }
-
-      $this->position = $position;
-    }
-
-    public function rewind() {
-        $this->position = 0;
+    public function rewind($position = 0) {
+        $this->position = $position;
     }
 
     public function current() {

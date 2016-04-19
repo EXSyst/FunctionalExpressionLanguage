@@ -90,6 +90,14 @@ class Lexer
 
                 $next = $source->read(1);
                 if ($next === $quote) {
+                    // Consider 2 quotes following as an escapement
+                    if ($quote === $source->peek(1, true)) {
+                        $source->read(1);
+                        $value .= $quote.$quote;
+
+                        continue;
+                    }
+
                     $value = $quote.$value.$quote.$source->eatSpan(self::BASE_MASK.self::NUMBERS_MASK);
 
                     return $this->sendToken(TokenType::LITERAL, $value);
