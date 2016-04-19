@@ -203,7 +203,6 @@ class Parser implements ParserInterface
         try {
             return yield from call_user_func($fn);
         } catch (\Exception $e) {
-            // ->next() will be applied
             $this->tokens->rewind($state);
 
             throw $e;
