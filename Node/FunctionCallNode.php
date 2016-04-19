@@ -5,7 +5,7 @@ namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 final class FunctionCallNode extends Node
 {
     private $name;
-    private $arguments;
+    private $arguments = [];
 
     /**
      * @param NameNode        $name

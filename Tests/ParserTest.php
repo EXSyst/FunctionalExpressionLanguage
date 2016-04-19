@@ -29,8 +29,14 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                 'foo()',
             ],
             'names' => [
-                new Node\RootNode(new Node\FunctionCallNode(new Node\NameNode('foo'))),
-                'foo(bar, foo)',
+                new Node\RootNode(new Node\FunctionCallNode(
+                    new Node\NameNode('foo')),
+                    [
+                        new Node\NameNode('bar'),
+                        new Node\NameNode('foo'),
+                    ]
+                ),
+                'foo(bar,foo)',
             ]
         ];
     }

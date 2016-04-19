@@ -19,7 +19,6 @@ class Parser implements ParserInterface
     private $generator;
     private $operators = array();
 
-    private $saveState = false;
     private $tokens = [];
 
     /**
@@ -42,10 +41,12 @@ class Parser implements ParserInterface
 
     public function accept(Token $token)
     {
-        if ($this->saveState) {
-            $this->tokens[] = $token;
-        }
         $this->generator->send($token);
+
+        // Replay tokens
+        for (; count($this->tokens); $token = array_shift($this->tokens)) {
+            $this->generator->send($token);
+        }
     }
 
     private function parse(): \Generator
@@ -141,25 +142,27 @@ class Parser implements ParserInterface
      */
     private function transact(callable $fn): \Generator
     {
-        $this->saveState = true;
+        $tokens = [];
         try {
-            return yield from call_user_func($fn);
+            $generator = call_user_func($fn);
+            while (true) {
+                if (!$generator->valid()) {
+                    break;
+                }
+                $generator->send($tokens[] = yield);
+            }
+
+            return $generator->getReturn();
         } catch (\Exception $e) {
-            $this->rewind();
+            $this->rewind($tokens);
 
             throw $e;
         }
     }
 
-    private function rewind()
+    private function rewind(array $tokens)
     {
-        $tokens = $this->tokens;
-        $this->saveState = false;
-        $this->tokens = [];
-
-        foreach($this->tokens as $token) {
-            $this->accept($token);
-        }
+        $this->tokens = array_merge($this->tokens, $tokens);
     }
 
     private function test(Token $token, $type, $value = null)
