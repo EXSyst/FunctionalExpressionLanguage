@@ -65,6 +65,7 @@ class Parser implements ParserInterface
         if (($node = yield from $this->tryParseFunctionCall())
             || ($node = yield from $this->tryParseName())
             || ($node = yield from $this->tryParseLiteral())
+            || ($node = yield from $this->tryParseLambda())
             || ($node = yield from $this->tryParseScope())) {
             return $node;
         }
@@ -141,6 +142,43 @@ class Parser implements ParserInterface
         }
 
         return new Node\LiteralNode(intval($matches[1]), $matches[3]);
+    }
+
+    private function tryParseLambda(): \Generator
+    {
+        try {
+            $arguments = yield from $this->transact(function() {
+                $this->expect(yield, TokenType::PUNCTUATION, '(');
+
+                $first = true;
+                $arguments = [];
+                while (true) {
+                    $token = yield;
+                    if ($this->test($token, TokenType::PUNCTUATION, ')')) {
+                        break;
+                    }
+
+                    if (!$first) {
+                        $this->expect($token, TokenType::PUNCTUATION, ',');
+                        $token = yield;
+                    }
+                    $this->expect($token, TokenType::NAME);
+                    $arguments[] = new Node\NameNode($token->value);
+
+                    $first = false;
+                }
+
+                $this->expect(yield, TokenType::SYMBOL, '=>');
+
+                return $arguments;
+            });
+        } catch (UnexpectedTokenException $e) {
+            return false;
+        }
+
+        $expression = yield from $this->parseExpression();
+
+        return new Node\LambdaNode($arguments, $expression);
     }
 
     private function tryParseScope(): \Generator

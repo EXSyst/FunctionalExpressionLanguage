@@ -66,6 +66,10 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                     new Node\NameNode('foo')
                 ),
                 '(bar: (baz: 4; baz); foo: foo(bar); foo)'
+            ],
+            'lambda' => [
+                new Node\LambdaNode([new Node\NameNode('x'), new Node\NameNode('y')], new Node\NameNode('foo')),
+                '(x, y) => foo'
             ]
         ];
     }
