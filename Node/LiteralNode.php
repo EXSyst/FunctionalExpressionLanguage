@@ -2,6 +2,8 @@
 
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+
 final class LiteralNode extends Node
 {
     private $value;
@@ -21,5 +23,10 @@ final class LiteralNode extends Node
     public function getSuffix()
     {
         return $this->suffix;
+    }
+
+    public function accept(NodeVisitor $visitor)
+    {
+        $visitor->visitLiteralNode($this);
     }
 }

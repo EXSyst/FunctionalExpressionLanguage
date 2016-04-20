@@ -2,6 +2,8 @@
 
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+
 final class NameNode extends Node
 {
     private $name;
@@ -15,5 +17,10 @@ final class NameNode extends Node
     public function getName()
     {
         return $this->name;
+    }
+
+    public function accept(NodeVisitor $visitor)
+    {
+        $visitor->visitNameNode($this);
     }
 }

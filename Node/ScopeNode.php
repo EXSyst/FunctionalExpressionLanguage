@@ -2,7 +2,7 @@
 
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
-use EXSyst\Component\FunctionalExpressionLanguage\Node\Node;
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
 
 final class ScopeNode extends Node
 {
@@ -28,8 +28,18 @@ final class ScopeNode extends Node
         $this->assignments[$name] = $assignment;
     }
 
+    public function getAssignments()
+    {
+        return $this->assignments;
+    }
+
     public function setExpression(Node $expression)
     {
         $this->expression = $expression;
+    }
+
+    public function accept(NodeVisitor $visitor)
+    {
+        $visitor->visitScopeNode($this);
     }
 }

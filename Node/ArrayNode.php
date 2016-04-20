@@ -2,7 +2,9 @@
 
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
-class ArrayNode extends Node
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+
+final class ArrayNode extends Node
 {
     private $elements = [];
     private $index;
@@ -24,5 +26,10 @@ class ArrayNode extends Node
         }
 
         $this->elements[$key] = $value;
+    }
+
+    public function accept(NodeVisitor $visitor)
+    {
+        $visitor->visitArrayNode($this);
     }
 }

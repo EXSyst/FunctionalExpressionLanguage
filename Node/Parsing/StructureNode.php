@@ -3,6 +3,7 @@
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node\Parsing;
 
 use EXSyst\Component\FunctionalExpressionLanguage\Node\Node;
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
 
 /**
  * Only used when parsing.

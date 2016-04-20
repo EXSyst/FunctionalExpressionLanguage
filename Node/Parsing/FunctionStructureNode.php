@@ -3,6 +3,7 @@
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node\Parsing;
 
 use EXSyst\Component\FunctionalExpressionLanguage\Node\Node;
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
 
 /**
  * Only used when parsing.
@@ -13,15 +14,15 @@ use EXSyst\Component\FunctionalExpressionLanguage\Node\Node;
 final class FunctionStructureNode extends Node
 {
     private $function;
-    private $arguments;
+    private $expression;
 
     /**
      * @param Node $expression
      */
-    public function __construct (Node $function, StructureNode $arguments)
+    public function __construct (Node $function, StructureNode $expression = null)
     {
         $this->function = $function;
-        $this->arguments = $arguments->getExpression();
+        $this->expression = $expression->getExpression();
     }
 
     public function getFunction(): Node
@@ -29,8 +30,13 @@ final class FunctionStructureNode extends Node
         return $this->function;
     }
 
-    public function getArguments(): Node
+    public function getExpression(): Node
     {
-        return $this->arguments;
+        return $this->expression;
+    }
+
+    public function accept(NodeVisitor $visitor)
+    {
+        $visitor->visitFunctionStructureNode($this);
     }
 }

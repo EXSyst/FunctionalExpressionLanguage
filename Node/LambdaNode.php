@@ -2,14 +2,16 @@
 
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+
 final class LambdaNode extends Node
 {
     private $arguments;
     private $expression;
 
     /**
-     * @param NameNode[] $arguments
-     * @param Node       $expression
+     * @param Node $arguments
+     * @param Node $expression
      */
     public function __construct(array $arguments, Node $expression)
     {
@@ -30,5 +32,10 @@ final class LambdaNode extends Node
     public function addArgument(Node $argument)
     {
         $this->arguments[] = $argument;
+    }
+
+    public function accept(NodeVisitor $visitor)
+    {
+        $visitor->visitLambdaNode($this);
     }
 }

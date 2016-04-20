@@ -2,24 +2,26 @@
 
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
-final class PropertyAccessNode extends Node
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+
+final class ArrayElementAccessNode extends Node
 {
-    private $object;
+    private $array;
     private $key;
 
     /**
-     * @param NameNode      $object the object from which access a property
+     * @param Node $object the object from which access a property
      * @param Node $key    the key of the element to access
      */
-    public function __construct(NameNode $object, Node $key)
+    public function __construct(Node $array, Node $key)
     {
-        $this->object = $object;
+        $this->array = $array;
         $this->key = $key;
     }
 
-    public function getObject(): NameNode
+    public function getArray(): Node
     {
-        return $this->object;
+        return $this->array;
     }
 
     public function getKey(): Node
