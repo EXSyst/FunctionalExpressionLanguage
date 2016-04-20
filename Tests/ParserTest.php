@@ -260,7 +260,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase
         return [
             [' '],
             ['=o'],
-            ['match$s'],
+            ['match@s'],
             [')'],
             ['{'],
         ];

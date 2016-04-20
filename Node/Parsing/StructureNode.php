@@ -28,4 +28,9 @@ final class StructureNode extends Node
     {
         return $this->expression;
     }
+
+    public function accept(NodeVisitor $visitor)
+    {
+        return $visitor->visitStructureNode($this);
+    }
 }

@@ -36,12 +36,12 @@ class LexerTest extends \PHPUnit_Framework_TestCase
                     new Token(TokenType::WHITE_SPACE, '  ', 0, 0, 0),
                     new Token(TokenType::LITERAL, '\'foo\'suffix', 2, 0, 2),
                     new Token(TokenType::SYMBOL, '.', 13, 0, 13),
-                    new Token(TokenType::NAME, 'bar', 14, 0, 14),
-                    new Token(TokenType::SYMBOL, '=!=', 17, 0, 17),
-                    new Token(TokenType::LITERAL, '\'bar\'', 20, 0, 20),
-                    new Token(TokenType::EOF, null, 25, 0, 25),
+                    new Token(TokenType::NAME, '$bar', 14, 0, 14),
+                    new Token(TokenType::SYMBOL, '=!=', 18, 0, 18),
+                    new Token(TokenType::LITERAL, '\'bar\'', 21, 0, 21),
+                    new Token(TokenType::EOF, null, 26, 0, 26),
                 ],
-                "  'foo'suffix.bar=!='bar'",
+                "  'foo'suffix.\$bar=!='bar'",
             ],
             'strings' => [
                 [
