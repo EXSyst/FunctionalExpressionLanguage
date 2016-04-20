@@ -4,14 +4,19 @@ namespace EXSyst\Component\FunctionalExpressionLanguage;
 
 use EXSyst\Component\FunctionalExpressionLanguage\Exception\UnexpectedTokenException;
 use EXSyst\Component\FunctionalExpressionLanguage\Library\Operator;
+use EXSyst\Component\FunctionalExpressionLanguage\Library\ColonOperator;
 use EXSyst\Component\FunctionalExpressionLanguage\Token;
 use EXSyst\Component\FunctionalExpressionLanguage\TokenType;
+use EXSyst\Component\IO\Reader\CDataReader;
 
 class Parser implements ParserInterface
 {
+    const SEPARATOR_PRECEDENCE = -4;
+    const INTEROGATION_PRECEDENCE = -1;
+
     private $root;
     private $generator;
-    private $operators = array();
+    private $operators;
 
     private $tokens = [];
 
@@ -20,6 +25,14 @@ class Parser implements ParserInterface
      */
     public function __construct(array $operators = array())
     {
+        $this->operators = [
+            ',' => new Operator(',', self::SEPARATOR_PRECEDENCE, Operator::LEFT_ASSOCIATION),
+            ';' => new Operator(';', self::SEPARATOR_PRECEDENCE, Operator::LEFT_ASSOCIATION),
+            ':' => new ColonOperator(),
+            '=>' => new Operator('=>', -2, Operator::RIGHT_ASSOCIATION),
+            '?' => new Operator('?', self::INTEROGATION_PRECEDENCE, Operator::RIGHT_ASSOCIATION),
+            '.' => new Operator('.', PHP_INT_MAX - 1, Operator::LEFT_ASSOCIATION),
+        ];
         foreach($operators as $operator) {
             $this->registerOperator($operator);
         }
@@ -56,28 +69,66 @@ class Parser implements ParserInterface
 
     private function parse(): \Generator
     {
-        $node = yield from $this->parseScopeInner($this->root);
+        $this->root->setExpression(yield from $this->parseExpression());
         $this->expect(yield, TokenType::EOF);
     }
 
-    private function parseExpression(): \Generator
+    private function parseExpression(int $precedence = self::SEPARATOR_PRECEDENCE): \Generator
     {
-        if (($node = yield from $this->tryParseFunctionCall())
-            || ($node = yield from $this->tryParseName())
-            || ($node = yield from $this->tryParseLiteral())
-            || ($node = yield from $this->tryParseLambda())
-            || ($node = yield from $this->tryParseScope())) {
-            return $node;
+        if (($expression = yield from $this->tryParseFunctionCall())
+            || ($expression = yield from $this->tryParseName())
+            || ($expression = yield from $this->tryParseLiteral())
+            || ($expression = yield from $this->tryParseScope())) {
+
+            return yield from $this->tryParseOperation($expression, $precedence);
         }
 
         throw new UnexpectedTokenException(yield);
+    }
+
+    private function tryParseOperation(Node\Node $expression, int $precedence)
+    {
+        while (true) {
+            try {
+                $operator = yield from $this->transact(function() use ($expression, $precedence) {
+                    $this->expect($operatorName = yield, [TokenType::NAME, TokenType::SYMBOL]);
+                    if (!isset($this->operators[$operatorName->value])) {
+                        throw new \LogicException(sprintf('Operator "%s" doesn\'t exist', $operatorName->value));
+                    }
+
+                    $operator = $this->operators[$operatorName->value];
+                    if ($operator->getPrecedence($precedence) < $precedence) {
+                        throw new UnexpectedTokenException($operatorName);
+                    }
+
+                    return $operator;
+                });
+            } catch (UnexpectedTokenException $e) {
+                break;
+            }
+
+            $expression2 = yield from $this->parseExpression(
+                Operator::LEFT_ASSOCIATION === $operator->getAssociativity()
+                ? $operator->getPrecedence($precedence) + 1
+                : $operator->getPrecedence($precedence)
+            );
+            $expression = new Node\FunctionCallNode(
+                new Node\NameNode($operator->getName()),
+                [
+                    $expression,
+                    $expression2,
+                ]
+            );
+        }
+
+        return $expression;
     }
 
     private function tryParseFunctionCall(): \Generator
     {
         try {
             $function = yield from $this->transact(function() {
-                $this->expect($name = yield, TokenType::NAME);
+                $this->expect($name = yield, [TokenType::NAME, TokenType::SYMBOL]);
                 $this->expect(yield, TokenType::PUNCTUATION, '(');
 
                 return new Node\FunctionCallNode(new Node\NameNode($name->value));
@@ -86,23 +137,16 @@ class Parser implements ParserInterface
             return false;
         }
 
-        try {
-            yield from $this->transact(function () {
-                $this->expect(yield, TokenType::PUNCTUATION, ')');
-            });
-
-            return $function;
-        } catch (UnexpectedTokenException $e) {
-        }
-
         while (true) {
-            $function->addArgument(yield from $this->parseExpression());
+            try {
+                yield from $this->transact(function () {
+                    $this->expect(yield, TokenType::PUNCTUATION, ')');
+                });
 
-            if ($this->test($token = yield, TokenType::PUNCTUATION, ')')) {
                 return $function;
+            } catch (UnexpectedTokenException $e) {
+                $function->addArgument(yield from $this->parseExpression());
             }
-
-            $this->expect($token, TokenType::PUNCTUATION, ',');
         }
     }
 
@@ -144,43 +188,6 @@ class Parser implements ParserInterface
         return new Node\LiteralNode(intval($matches[1]), $matches[3]);
     }
 
-    private function tryParseLambda(): \Generator
-    {
-        try {
-            $arguments = yield from $this->transact(function() {
-                $this->expect(yield, TokenType::PUNCTUATION, '(');
-
-                $first = true;
-                $arguments = [];
-                while (true) {
-                    $token = yield;
-                    if ($this->test($token, TokenType::PUNCTUATION, ')')) {
-                        break;
-                    }
-
-                    if (!$first) {
-                        $this->expect($token, TokenType::PUNCTUATION, ',');
-                        $token = yield;
-                    }
-                    $this->expect($token, TokenType::NAME);
-                    $arguments[] = new Node\NameNode($token->value);
-
-                    $first = false;
-                }
-
-                $this->expect(yield, TokenType::SYMBOL, '=>');
-
-                return $arguments;
-            });
-        } catch (UnexpectedTokenException $e) {
-            return false;
-        }
-
-        $expression = yield from $this->parseExpression();
-
-        return new Node\LambdaNode($arguments, $expression);
-    }
-
     private function tryParseScope(): \Generator
     {
         try {
@@ -192,33 +199,11 @@ class Parser implements ParserInterface
         }
 
         $node = new Node\ScopeNode();
-
-        yield from $this->parseScopeInner($node);
+        $node->setExpression(yield from $this->parseExpression());
 
         $this->expect(yield, TokenType::PUNCTUATION, ')');
 
         return $node;
-    }
-
-    private function parseScopeInner(Node\ScopeNode $node)
-    {
-        while (true) {
-            try {
-                $name = yield from $this->transact(function() {
-                    $this->expect($name = yield, TokenType::NAME);
-                    $this->expect(yield, TokenType::PUNCTUATION, ':');
-
-                    return $name;
-                });
-            } catch (UnexpectedTokenException $e) {
-                break;
-            }
-
-            $node->addAssignment($name->value, yield from $this->parseExpression());
-            $this->expect(yield, TokenType::PUNCTUATION, ';');
-        }
-
-        $node->setExpression(yield from $this->parseExpression());
     }
 
     private function registerOperator(Operator $operator)
@@ -227,7 +212,13 @@ class Parser implements ParserInterface
             throw new \LogicException(sprintf('An operator with the name "%s" is already registered', $operator->getName()));
         }
 
-        $this->operators[$operator->getName] = $operator;
+        $name = $operator->getName();
+        $len = strlen($name);
+        if ((floatval($name) || strspn($name, Lexer::BASE_MASK.Lexer::NUMBERS_MASK) !== $len) && strcspn($name, Lexer::BASE_MASK.Lexer::NUMBERS_MASK.Lexer::PUNCTUATION_MASK.Lexer::QUOTE_MASK.CDataReader::WHITE_SPACE_MASK) !== $len) {
+            throw new \LogicException(sprintf('"%s" isn\'t a valid operator. An operator must only be composed of ASCII caracters OR symbols ("matches", "=>" are operators but "1:" or "=3" aren\'t)', $name));
+        }
+
+        $this->operators[$operator->getName()] = $operator;
     }
 
     /**
@@ -247,15 +238,33 @@ class Parser implements ParserInterface
         }
     }
 
-    private function expect(Token $token, int $type, string $value = null)
+    /**
+     * @param int[]|int $types
+     */
+    private function expect(Token $token, $types, string $value = null)
     {
-        if (!$this->test($token, $type, $value)) {
-            throw new UnexpectedTokenException($token, $type, $value);
+        if (!$this->test($token, $types, $value)) {
+            throw new UnexpectedTokenException($token, $types, $value);
         }
     }
 
-    private function test(Token $token, int $type, string $value = null)
+    /**
+     * @param int[]|int $types
+     */
+    private function test(Token $token, $types, string $value = null)
     {
-        return $token->type === $type && (null === $value || $token->value === $value);
+        $types = (array) $types;
+
+        if (null !== $value && $token->value !== $value) {
+            return false;
+        }
+
+        foreach ($types as $type) {
+            if ($type === $token->type) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

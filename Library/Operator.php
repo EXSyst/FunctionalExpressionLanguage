@@ -2,19 +2,19 @@
 
 namespace EXSyst\Component\FunctionalExpressionLanguage\Library;
 
-final class Operator
+class Operator
 {
     const LEFT_ASSOCIATION = 0;
     const RIGHT_ASSOCIATION = 1;
 
     private $name;
-    private $priority;
+    private $precedence;
     private $associativity;
 
-    public function __construct(string $name, int $priority, int $associativity)
+    public function __construct(string $name, int $precedence, int $associativity)
     {
         $this->name = $name;
-        $this->priority = $priority;
+        $this->precedence = $precedence;
         $this->associativity = $associativity;
     }
 
@@ -23,12 +23,12 @@ final class Operator
         return $this->name;
     }
 
-    public function getPriority() : int
+    public function getPrecedence() : int
     {
-        return $this->priority;
+        return $this->precedence;
     }
 
-    public function getAssociativity() : bool
+    public function getAssociativity() : int
     {
         return $this->associativity;
     }

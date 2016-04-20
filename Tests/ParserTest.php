@@ -8,15 +8,16 @@ use EXSyst\Component\FunctionalExpressionLanguage\Parser;
 use EXSyst\Component\FunctionalExpressionLanguage\TokenType;
 use EXSyst\Component\FunctionalExpressionLanguage\ParserInterface;
 use EXSyst\Component\FunctionalExpressionLanguage\Node;
+use EXSyst\Component\FunctionalExpressionLanguage\Library\Operator;
 
 class ParserTest extends \PHPUnit_Framework_TestCase
 {
     /**
      * @dataProvider getTokenizeData
      */
-    public function testTokenize($node, $expression)
+    public function testTokenize($node, $expression, array $operators = array())
     {
-        $this->assertEquals(new Node\ScopeNode(array(), $node), $this->getNode($expression));
+        $this->assertEquals(new Node\ScopeNode(array(), $node), $this->getNode($expression, $operators));
     }
 
     public function getTokenizeData()
@@ -30,67 +31,203 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                 new Node\FunctionCallNode(
                     new Node\NameNode('foo'),
                     [
-                        new Node\NameNode('bar'),
                         new Node\FunctionCallNode(
-                            new Node\NameNode('foo'),
+                            new Node\NameNode(','),
                             [
-                                new Node\NameNode('foo'),
+                                new Node\NameNode('bar'),
+                                new Node\FunctionCallNode(
+                                    new Node\NameNode('foo'),
+                                    [
+                                        new Node\NameNode('foo'),
+                                    ]
+                                ),
                             ]
                         ),
                     ]
                 ),
                 'foo(bar, foo(foo))',
             ],
-            // 'property_access' => [
-            //     null,
-            //     'foo.bar',
-            // ],
+            'property_access' => [
+                new Node\FunctionCallNode(
+                    new Node\NameNode('.'),
+                    [
+                        new Node\NameNode('foo'),
+                        new Node\NameNode('bar'),
+                    ]
+                ),
+                'foo.bar',
+            ],
             'literals' => [
                 new Node\FunctionCallNode(
                     new Node\NameNode('foo'),
                     [
-                        new Node\LiteralNode('my_string', 'suffixed'),
-                        new Node\LiteralNode('my_other_string', ''),
-                        new Node\LiteralNode(32, 'bar'),
-                        new Node\LiteralNode(1.23, 'kg'),
+                        new Node\FunctionCallNode(
+                            new Node\NameNode(','),
+                            [
+                                new Node\FunctionCallNode(
+                                    new Node\NameNode(','),
+                                    [
+
+                                        new Node\LiteralNode('my_string', 'suffixed'),
+                                        new Node\LiteralNode(32, 'bar'),
+                                    ]
+                                ),
+                                new Node\LiteralNode(1.23, 'kg'),
+                            ]
+                        ),
                     ]
                 ),
-                'foo("my_string"suffixed, \'my_other_string\', 32bar, 1.23kg)',
+                'foo("my_string"suffixed, 32bar, 1.23kg)',
             ],
             'scopes' => [
-                new Node\ScopeNode(
+                // bar: (...); foo
+                new Node\FunctionCallNode(
+                    new Node\NameNode(';'),
                     [
-                        'bar' => new Node\ScopeNode(['baz' => new Node\LiteralNode(4)], new Node\NameNode('baz')),
-                        'foo' => new Node\FunctionCallNode(new Node\NameNode('foo'), [new Node\NameNode('bar')]),
-                    ],
-                    new Node\NameNode('foo')
+                        // bar: (...)
+                        new Node\FunctionCallNode(
+                            new Node\NameNode(':'),
+                            [
+                                new Node\NameNode('bar'),
+                                // (baz: 4; baz)
+                                new Node\ScopeNode(
+                                    [],
+                                    // baz: 4; baz
+                                    new Node\FunctionCallNode(
+                                        new Node\NameNode(';'),
+                                        [
+                                            // baz: 4
+                                            new Node\FunctionCallNode(
+                                                new Node\NameNode(':'),
+                                                [
+                                                    new Node\NameNode('baz'),
+                                                    new Node\LiteralNode(4),
+                                                ]
+                                            ),
+                                            // baz
+                                            new Node\NameNode('baz'),
+                                        ]
+                                    )
+                                )
+                            ]
+                        ),
+                        // foo
+                        new Node\NameNode('foo'),
+                    ]
                 ),
-                '(bar: (baz: 4; baz); foo: foo(bar); foo)'
+                'bar: (baz: 4; baz); foo'
             ],
             'lambda' => [
-                new Node\LambdaNode([new Node\NameNode('x'), new Node\NameNode('y')], new Node\NameNode('foo')),
+                // (...) => ...
+                new Node\FunctionCallNode(
+                    new Node\NameNode('=>'),
+                    [
+                        // (x, y)
+                        new Node\ScopeNode(
+                            [],
+                            new Node\FunctionCallNode(
+                                new Node\NameNode(','),
+                                [
+                                    new Node\NameNode('x'),
+                                    new Node\NameNode('y'),
+                                ]
+                            )
+                        ),
+                        // foo
+                        new Node\NameNode('foo'),
+                    ]
+                ),
                 '(x, y) => foo'
+            ],
+            'test precedence of ?: operator' => [
+                new Node\FunctionCallNode(
+                    new Node\NameNode(':'),
+                    [
+                        new Node\NameNode('bar'),
+                        new Node\FunctionCallNode(
+                            new Node\NameNode('?'),
+                            [
+                                new Node\NameNode('foo'),
+                                new Node\FunctionCallNode(
+                                    new Node\NameNode(':'),
+                                    [
+                                        new Node\NameNode('quz'),
+                                        new Node\NameNode('baz'),
+                                    ]
+                                ),
+                            ]
+                        ),
+                    ]
+                ),
+                'bar: foo ? quz : baz'
+            ],
+            'test custom operators' => [
+                new Node\FunctionCallNode(
+                    new Node\NameNode('plus'),
+                    [
+                        new Node\LiteralNode(4),
+                        new Node\FunctionCallNode(
+                            new Node\NameNode('*'),
+                            [
+                                new Node\LiteralNode(2),
+                                new Node\FunctionCallNode(
+                                    new Node\NameNode('**'),
+                                    [
+                                        new Node\LiteralNode(3),
+                                        new Node\LiteralNode(4),
+                                    ]
+                                )
+                            ]
+                        )
+                    ]
+                ),
+                '4 plus 2 * 3 ** 4',
+                array(
+                    new Operator('plus', 20, Operator::LEFT_ASSOCIATION),
+                    new Operator('*', 25, Operator::LEFT_ASSOCIATION),
+                    new Operator('**', 200, Operator::RIGHT_ASSOCIATION),
+                )
             ]
         ];
     }
 
-    public function testRootScope()
-    {
-        $this->assertEquals(new Node\ScopeNode(['bar' => new Node\LiteralNode('foo')], new Node\LiteralNode('bar')), $this->getNode('bar: "foo"; "bar"'));
-    }
-
     /**
      * @expectedException EXSyst\Component\FunctionalExpressionLanguage\Exception\UnexpectedTokenException
-     * @expectedExceptionMessage Unexpected token "PUNCTUATION" of value ";" ("PUNCTUATION" expected with value ",") (at position 7, line 0, row 7)
+     * @expectedExceptionMessage Unexpected token "PUNCTUATION" of value ")" (at position 9, line 0, row 9)
      */
     public function testFunctionArgumentsSyntaxError()
     {
-        $this->getNode('foo(bar;)');
+        $this->getNode('foo(bar !)', array(new Operator('!', '10', Operator::LEFT_ASSOCIATION)));
     }
 
-    private function getNode($expression)
+    /**
+     * @dataProvider invalidOperatorsProvider
+     */
+    public function testInvalidOperators($operator)
     {
-        $parser = new Parser();
+        try {
+            new Parser(array(new Operator($operator, 20, Operator::LEFT_ASSOCIATION)));
+
+            $this->fail(sprintf('"%s" is considered as valid but shouldn\'t.', $operator));
+        } catch (\LogicException $e) {
+            $this->assertContains(sprintf('"%s" isn\'t a valid operator', $operator), $e->getMessage());
+        }
+    }
+
+    public function invalidOperatorsProvider()
+    {
+        return [
+            [' '],
+            ['=o'],
+            ['match$s'],
+            [')'],
+            ['{'],
+        ];
+    }
+
+    private function getNode($expression, array $operators = array())
+    {
+        $parser = new Parser($operators);
         $lexer = new Lexer($expression, $parser);
 
         return $parser->getRootNode();

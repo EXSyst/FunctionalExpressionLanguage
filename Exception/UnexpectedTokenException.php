@@ -7,11 +7,17 @@ use EXSyst\Component\FunctionalExpressionLanguage\TokenType;
 
 class UnexpectedTokenException extends SyntaxException
 {
-    public function __construct(Token $token, int $expectedType = null, $expectedValue = null)
+    /**
+     * @param int[]|int $expectedTypes
+     */
+    public function __construct(Token $token, $expectedTypes = array(), $expectedValue = null)
     {
+        $expectedTypes = (array) $expectedTypes;
+
         $message = sprintf('Unexpected token "%s" of value "%s"', TokenType::getName($token->type), $token->value);
-        if ($expectedType) {
-            $message .= sprintf(' ("%s" expected%s)', TokenType::getName($expectedType), $expectedValue ? sprintf(' with value "%s"', $expectedValue) : '');
+        if ($expectedTypes) {
+            $expectedTypes = implode('", "', array_map([TokenType::class, 'getName'], $expectedTypes));
+            $message .= sprintf(' ("%s" expected%s)', $expectedTypes, $expectedValue ? sprintf(' with value "%s"', $expectedValue) : '');
         }
 
         parent::__construct($message, $token);
