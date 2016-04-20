@@ -3,11 +3,11 @@
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
 use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\VisitorState;
 
 final class NameNode extends Node
 {
-    private $name;
-    private $parent;
+    public $name;
 
     public function __construct(string $name)
     {
@@ -19,8 +19,8 @@ final class NameNode extends Node
         return $this->name;
     }
 
-    public function accept(NodeVisitor $visitor)
+    public function accept(NodeVisitor $visitor, VisitorState $state)
     {
-        $visitor->visitNameNode($this);
+        return $visitor->visitNameNode($this, $state);
     }
 }

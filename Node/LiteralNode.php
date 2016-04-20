@@ -3,11 +3,12 @@
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
 use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\VisitorState;
 
 final class LiteralNode extends Node
 {
-    private $value;
-    private $suffix;
+    public $value;
+    public $suffix;
 
     public function __construct($value, string $suffix = '')
     {
@@ -15,18 +16,8 @@ final class LiteralNode extends Node
         $this->suffix = $suffix;
     }
 
-    public function getValue()
+    public function accept(NodeVisitor $visitor, VisitorState $state)
     {
-        return $this->value;
-    }
-
-    public function getSuffix()
-    {
-        return $this->suffix;
-    }
-
-    public function accept(NodeVisitor $visitor)
-    {
-        $visitor->visitLiteralNode($this);
+        return $visitor->visitLiteralNode($this, $state);
     }
 }

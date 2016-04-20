@@ -3,11 +3,12 @@
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
 use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\VisitorState;
 
 final class ScopeNode extends Node
 {
-    private $assignments;
-    private $expression;
+    public $assignments;
+    public $expression;
 
     /**
      * @param AssignmentNode $assignments
@@ -28,18 +29,8 @@ final class ScopeNode extends Node
         $this->assignments[$name] = $assignment;
     }
 
-    public function getAssignments()
+    public function accept(NodeVisitor $visitor, VisitorState $state)
     {
-        return $this->assignments;
-    }
-
-    public function setExpression(Node $expression)
-    {
-        $this->expression = $expression;
-    }
-
-    public function accept(NodeVisitor $visitor)
-    {
-        $visitor->visitScopeNode($this);
+        return $visitor->visitScopeNode($this, $state);
     }
 }

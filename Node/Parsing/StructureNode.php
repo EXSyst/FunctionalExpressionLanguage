@@ -13,7 +13,7 @@ use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
  */
 final class StructureNode extends Node
 {
-    private $expression;
+    public $expression;
 
     /**
      * @param Node $expression
@@ -24,13 +24,8 @@ final class StructureNode extends Node
         $this->expression = $expression;
     }
 
-    public function getExpression()
+    public function accept(NodeVisitor $visitor, VisitorState $state)
     {
-        return $this->expression;
-    }
-
-    public function accept(NodeVisitor $visitor)
-    {
-        return $visitor->visitStructureNode($this);
+        return $visitor->visitStructureNode($this, $state);
     }
 }

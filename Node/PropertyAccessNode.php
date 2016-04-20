@@ -3,14 +3,15 @@
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
 use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\VisitorState;
 
 final class PropertyAccessNode extends Node
 {
-    private $object;
-    private $property;
+    public $object;
+    public $property;
 
     /**
-     * @param NameNode $object the object from which access a property
+     * @param Node $object the object from which access a property
      * @param Node $property the property to access or the function to call
      */
     public function __construct(Node $object, Node $property)
@@ -19,18 +20,8 @@ final class PropertyAccessNode extends Node
         $this->property = $property;
     }
 
-    public function getObject()
+    public function accept(NodeVisitor $visitor, VisitorState $state)
     {
-        return $this->object;
-    }
-
-    public function getProperty()
-    {
-        return $this->property;
-    }
-
-    public function accept(NodeVisitor $visitor)
-    {
-        $visitor->visitPropertyAccessNode($this);
+        return $visitor->visitPropertyAccessNode($this, $state);
     }
 }

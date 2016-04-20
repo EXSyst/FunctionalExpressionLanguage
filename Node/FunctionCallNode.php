@@ -3,11 +3,12 @@
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
 use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\VisitorState;
 
 final class FunctionCallNode extends Node
 {
-    private $function;
-    private $arguments;
+    public $function;
+    public $arguments;
 
     /**
      * @param Node   $function
@@ -19,18 +20,8 @@ final class FunctionCallNode extends Node
         $this->arguments = $arguments;
     }
 
-    public function getFunction()
+    public function accept(NodeVisitor $visitor, VisitorState $state)
     {
-        return $this->function;
-    }
-
-    public function getArguments()
-    {
-        return $this->arguments;
-    }
-
-    public function accept(NodeVisitor $visitor)
-    {
-        $visitor->visitFunctionCallNode($this);
+        return $visitor->visitFunctionCallNode($this, $state);
     }
 }

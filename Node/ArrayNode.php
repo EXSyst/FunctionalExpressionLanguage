@@ -3,20 +3,16 @@
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
 use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\VisitorState;
 
 final class ArrayNode extends Node
 {
-    private $elements = [];
+    public $elements = [];
     private $index;
 
     public function __construct()
     {
         $this->index = -1;
-    }
-
-    public function getElements()
-    {
-        return $this->elements;
     }
 
     public function addElement(Node $value, Node $key = null)
@@ -28,8 +24,8 @@ final class ArrayNode extends Node
         $this->elements[$key] = $value;
     }
 
-    public function accept(NodeVisitor $visitor)
+    public function accept(NodeVisitor $visitor, VisitorState $state)
     {
-        $visitor->visitArrayNode($this);
+        return $visitor->visitArrayNode($this, $state);
     }
 }

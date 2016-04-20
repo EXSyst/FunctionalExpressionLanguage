@@ -3,11 +3,12 @@
 namespace EXSyst\Component\FunctionalExpressionLanguage\Node;
 
 use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\VisitorState;
 
 final class ArrayElementAccessNode extends Node
 {
-    private $array;
-    private $key;
+    public $array;
+    public $key;
 
     /**
      * @param Node $object the object from which access a property
@@ -17,15 +18,5 @@ final class ArrayElementAccessNode extends Node
     {
         $this->array = $array;
         $this->key = $key;
-    }
-
-    public function getArray(): Node
-    {
-        return $this->array;
-    }
-
-    public function getKey(): Node
-    {
-        return $this->key;
     }
 }

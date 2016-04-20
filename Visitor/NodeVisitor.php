@@ -9,80 +9,86 @@ use EXSyst\Component\FunctionalExpressionLanguage\Node;
  */
 abstract class NodeVisitor
 {
-    public function visit(Node\Node $node)
+    public function visit(Node\Node &$node, VisitorState $state = null)
     {
-        $node->accept($this);
+        if (null === $state) {
+            $state = new VisitorState([], $node);
+        } else {
+            $state = $state->createChild($node);
+        }
+
+        $node->accept($this, $state);
     }
 
-    public function visitNameNode(Node\NameNode $node)
+    public function visitNameNode(Node\NameNode $node, VisitorState $state)
     {
     }
 
-    public function visitArrayElementAccessNode(Node\ArrayElementAccessNode $node)
+    public function visitArrayElementAccessNode(Node\ArrayElementAccessNode $node, VisitorState $state)
     {
-        $node->getArray()->visit($this);
-        $node->getKey()->visit($this);
+        $this->visit($node->array, $state);
+        $this->visit($node->key, $state);
     }
 
-    public function visitArrayNode(Node\ArrayNode $node)
+    public function visitArrayNode(Node\ArrayNode $node, VisitorState $state)
     {
-        foreach ($node->getElements() as $key => $value) {
+        foreach ($node->elements as &$key => &$value) {
             if ($key instanceof Node\Node) {
-                $key->accept($this);
+                $this->visit($key, $state);
             }
-            $value->accept($this);
+            $this->visit($value, $state);
         }
     }
 
-    public function visitFunctionCallNode(Node\FunctionCallNode $node)
+    public function visitFunctionCallNode(Node\FunctionCallNode $node, VisitorState $state)
     {
-        $node->getFunction()->accept($this);
-        foreach ($node->getArguments() as $argument) {
-            $argument->accept($this);
+        $this->visit($node->function, $state);
+        foreach ($node->arguments as &$argument) {
+            $this->visit($argument, $state);
         }
     }
 
-    public function visitLambdaNode(Node\LambdaNode $node)
+    public function visitLambdaNode(Node\LambdaNode $node, VisitorState $state)
     {
-        foreach ($node->getArguments() as $argument) {
-            $argument->accept($this);
+        foreach ($node->arguments as &$argument) {
+            $this->visit($argument, $state);
         }
 
-        $node->getExpression()->accept($this);
+        $this->visit($node->expression, $state);
     }
 
-    public function visitLiteraleNode(Node\LiteralNode $node)
+    public function visitLiteralNode(Node\LiteralNode $node, VisitorState $state)
     {
     }
 
-    public function visitPropertyAccessNode(Node\PropertyAccessNode $node)
+    public function visitPropertyAccessNode(Node\PropertyAccessNode $node, VisitorState $state)
     {
-        $node->getObject()->accept($this);
-        $node->getProperty()->accept($this);
+        $this->visit($node->object, $state);
+        $this->visit($node->property, $state);
     }
 
-    public function visitScopeNode(Node\ScopeNode $node)
+    public function visitScopeNode(Node\ScopeNode $node, VisitorState $state)
     {
-        foreach ($node->getAssignments() as $assignment) {
-            $assignment->accept($this);
+        foreach ($node->assignments as &$assignment) {
+            $this->visit($assignment, $state);
         }
 
-        $node->getExpression()->accept($this);
+        $this->visit($node->expression, $state);
     }
 
     // Parsing
-    public function visitFunctionStructureNode(Node\Parsing\FunctionStructureNode $node)
+    public function visitFunctionStructureNode(Node\Parsing\FunctionStructureNode $node, VisitorState $state)
     {
-        $node->getFunction()->accept($this);
-        if ($expression = $node->getExpression()) {
-            $expression->accept($this);
+        $this->visit($node->function, $state);
+        if ($expression = $node->expression) {
+            $this->visit($expression, $state);
         }
     }
 
-    public function visitStructureNode(Node\Parsing\StructureNode $node)
+    public function visitStructureNode(Node\Parsing\StructureNode $node, VisitorState $state)
     {
-        if ($expression = $node->getExpression()) {
-            $expression->accept($this);
+        if ($node->expression) {
+            $this->visit($node->expression, $state);
         }
     }
 }
