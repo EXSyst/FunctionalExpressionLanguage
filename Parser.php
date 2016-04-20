@@ -37,7 +37,6 @@ class Parser implements ParserInterface
             $this->registerOperator($operator);
         }
 
-        $this->root = new Node\ScopeNode();
         $this->tokens = new TokenIterator();
         $this->generator = $this->parse();
 
@@ -69,16 +68,18 @@ class Parser implements ParserInterface
 
     private function parse(): \Generator
     {
-        $this->root->setExpression(yield from $this->parseExpression());
+        $this->root = new Node\Parsing\StructureNode('(', yield from $this->parseExpression());
         $this->expect(yield, TokenType::EOF);
     }
 
     private function parseExpression(int $precedence = self::SEPARATOR_PRECEDENCE): \Generator
     {
-        if (($expression = yield from $this->tryParseFunctionCall())
-            || ($expression = yield from $this->tryParseName())
+        if (($expression = yield from $this->tryParseName())
             || ($expression = yield from $this->tryParseLiteral())
-            || ($expression = yield from $this->tryParseScope())) {
+            || ($expression = yield from $this->tryParseStructure('[', ']'))
+            || ($expression = yield from $this->tryParseStructure('(', ')', false))) {
+
+            $expression = yield from $this->tryParseFunctionCall($expression);
 
             return yield from $this->tryParseOperation($expression, $precedence);
         }
@@ -124,30 +125,13 @@ class Parser implements ParserInterface
         return $expression;
     }
 
-    private function tryParseFunctionCall(): \Generator
+    private function tryParseFunctionCall(Node\Node $expression): \Generator
     {
-        try {
-            $function = yield from $this->transact(function() {
-                $this->expect($name = yield, [TokenType::NAME, TokenType::SYMBOL]);
-                $this->expect(yield, TokenType::PUNCTUATION, '(');
-
-                return new Node\FunctionCallNode(new Node\NameNode($name->value));
-            });
-        } catch (UnexpectedTokenException $e) {
-            return false;
+        if ($structure = yield from $this->tryParseStructure('(', ')')) {
+            return new Node\Parsing\FunctionStructureNode($expression, $structure);
         }
 
-        while (true) {
-            try {
-                yield from $this->transact(function () {
-                    $this->expect(yield, TokenType::PUNCTUATION, ')');
-                });
-
-                return $function;
-            } catch (UnexpectedTokenException $e) {
-                $function->addArgument(yield from $this->parseExpression());
-            }
-        }
+        return $expression;
     }
 
     private function tryParseName(): \Generator
@@ -188,22 +172,32 @@ class Parser implements ParserInterface
         return new Node\LiteralNode(intval($matches[1]), $matches[3]);
     }
 
-    private function tryParseScope(): \Generator
+    private function tryParseStructure(string $openingTag, string $closingTag, bool $allowEmpty = true): \Generator
     {
         try {
-            yield from $this->transact(function() {
-                $this->expect(yield, TokenType::PUNCTUATION, '(');
+            yield from $this->transact(function() use ($openingTag) {
+                $this->expect(yield, TokenType::PUNCTUATION, $openingTag);
             });
         } catch (UnexpectedTokenException $e) {
             return false;
         }
 
-        $node = new Node\ScopeNode();
-        $node->setExpression(yield from $this->parseExpression());
+        if ($allowEmpty) {
+            // To return clearer errors, try to close the structure
+            try {
+                yield from $this->transact(function () use ($closingTag) {
+                    $this->expect(yield, TokenType::PUNCTUATION, $closingTag);
+                });
 
-        $this->expect(yield, TokenType::PUNCTUATION, ')');
+                return new Node\Parsing\StructureNode($openingTag);
+            } catch (UnexpectedTokenException $e) {
+            }
+        }
 
-        return $node;
+        $expression = yield from $this->parseExpression();
+        $this->expect(yield, TokenType::PUNCTUATION, $closingTag);
+
+        return new Node\Parsing\StructureNode($openingTag, $expression);
     }
 
     private function registerOperator(Operator $operator)
@@ -226,7 +220,6 @@ class Parser implements ParserInterface
      */
     private function transact(callable $fn): \Generator
     {
-        // The stream is already on the next token
         $state = $this->tokens->key();
 
         try {
