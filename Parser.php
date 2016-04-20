@@ -31,6 +31,8 @@ class Parser implements ParserInterface
             ':' => new ColonOperator(),
             '=>' => new Operator('=>', -2, Operator::RIGHT_ASSOCIATION),
             '?' => new Operator('?', self::INTEROGATION_PRECEDENCE, Operator::RIGHT_ASSOCIATION),
+            '?:' => new Operator('?:', self::INTEROGATION_PRECEDENCE, Operator::RIGHT_ASSOCIATION),
+            '?.' => new Operator('?.', PHP_INT_MAX - 1, Operator::RIGHT_ASSOCIATION),
             '.' => new Operator('.', PHP_INT_MAX - 1, Operator::LEFT_ASSOCIATION),
         ];
         foreach($operators as $operator) {
@@ -68,7 +70,7 @@ class Parser implements ParserInterface
 
     private function parse(): \Generator
     {
-        $this->root = new Node\Parsing\StructureNode('(', yield from $this->parseExpression());
+        $this->root = new Node\Internal\StructureNode('(', yield from $this->parseExpression());
         $this->expect(yield, TokenType::EOF);
     }
 
@@ -128,7 +130,7 @@ class Parser implements ParserInterface
     private function tryParseFunctionCall(Node\Node $expression): \Generator
     {
         if ($structure = yield from $this->tryParseStructure('(', ')')) {
-            return new Node\Parsing\FunctionStructureNode($expression, $structure);
+            return new Node\Internal\FunctionStructureNode($expression, $structure);
         }
 
         return $expression;
@@ -189,7 +191,7 @@ class Parser implements ParserInterface
                     $this->expect(yield, TokenType::PUNCTUATION, $closingTag);
                 });
 
-                return new Node\Parsing\StructureNode($openingTag);
+                return new Node\Internal\StructureNode($openingTag);
             } catch (UnexpectedTokenException $e) {
             }
         }
@@ -197,7 +199,7 @@ class Parser implements ParserInterface
         $expression = yield from $this->parseExpression();
         $this->expect(yield, TokenType::PUNCTUATION, $closingTag);
 
-        return new Node\Parsing\StructureNode($openingTag, $expression);
+        return new Node\Internal\StructureNode($openingTag, $expression);
     }
 
     private function registerOperator(Operator $operator)

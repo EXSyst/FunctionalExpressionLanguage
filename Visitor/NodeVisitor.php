@@ -13,8 +13,6 @@ abstract class NodeVisitor
     {
         if (null === $state) {
             $state = new VisitorState([], $node);
-        } else {
-            $state = $state->createChild($node);
         }
 
         $node->accept($this, $state);
@@ -26,35 +24,32 @@ abstract class NodeVisitor
 
     public function visitArrayElementAccessNode(Node\ArrayElementAccessNode $node, VisitorState $state)
     {
-        $this->visit($node->array, $state);
-        $this->visit($node->key, $state);
+        $this->visitChild($node->array, $state);
+        $this->visitChild($node->key, $state);
     }
 
     public function visitArrayNode(Node\ArrayNode $node, VisitorState $state)
     {
-        foreach ($node->elements as &$key => &$value) {
-            if ($key instanceof Node\Node) {
-                $this->visit($key, $state);
-            }
-            $this->visit($value, $state);
+        foreach ($node->elements as &$value) {
+            $this->visitChild($value, $state);
         }
     }
 
     public function visitFunctionCallNode(Node\FunctionCallNode $node, VisitorState $state)
     {
-        $this->visit($node->function, $state);
+        $this->visitChild($node->function, $state);
         foreach ($node->arguments as &$argument) {
-            $this->visit($argument, $state);
+            $this->visitChild($argument, $state);
         }
     }
 
     public function visitLambdaNode(Node\LambdaNode $node, VisitorState $state)
     {
         foreach ($node->arguments as &$argument) {
-            $this->visit($argument, $state);
+            $this->visitChild($argument, $state);
         }
 
-        $this->visit($node->expression, $state);
+        $this->visitChild($node->expression, $state);
     }
 
     public function visitLiteralNode(Node\LiteralNode $node, VisitorState $state)
@@ -63,32 +58,37 @@ abstract class NodeVisitor
 
     public function visitPropertyAccessNode(Node\PropertyAccessNode $node, VisitorState $state)
     {
-        $this->visit($node->object, $state);
-        $this->visit($node->property, $state);
+        $this->visitChild($node->object, $state);
+        $this->visitChild($node->property, $state);
     }
 
     public function visitScopeNode(Node\ScopeNode $node, VisitorState $state)
     {
         foreach ($node->assignments as &$assignment) {
-            $this->visit($assignment, $state);
+            $this->visitChild($assignment, $state);
         }
 
-        $this->visit($node->expression, $state);
+        $this->visitChild($node->expression, $state);
     }
 
-    // Parsing
-    public function visitFunctionStructureNode(Node\Parsing\FunctionStructureNode $node, VisitorState $state)
+    // Internal
+    public function visitFunctionStructureNode(Node\Internal\FunctionStructureNode $node, VisitorState $state)
     {
-        $this->visit($node->function, $state);
+        $this->visitChild($node->function, $state);
         if ($expression = $node->expression) {
-            $this->visit($expression, $state);
+            $this->visitChild($expression, $state);
         }
     }
 
-    public function visitStructureNode(Node\Parsing\StructureNode $node, VisitorState $state)
+    public function visitStructureNode(Node\Internal\StructureNode $node, VisitorState $state)
     {
         if ($node->expression) {
-            $this->visit($node->expression, $state);
+            $this->visitChild($node->expression, $state);
         }
+    }
+
+    protected function visitChild(Node\Node $node, VisitorState $state)
+    {
+        $this->visit($node, $state->createChild($node));
     }
 }

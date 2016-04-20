@@ -8,20 +8,11 @@ use EXSyst\Component\FunctionalExpressionLanguage\Visitor\VisitorState;
 final class ArrayNode extends Node
 {
     public $elements = [];
-    private $index;
 
-    public function __construct()
+    public function addElement(Node $value)
     {
-        $this->index = -1;
-    }
 
-    public function addElement(Node $value, Node $key = null)
-    {
-        if (null === $key) {
-            $key = new LiteralNode(++$this->index);
-        }
-
-        $this->elements[$key] = $value;
+        $this->elements[] = $value;
     }
 
     public function accept(NodeVisitor $visitor, VisitorState $state)

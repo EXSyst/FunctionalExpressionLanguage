@@ -1,9 +1,10 @@
 <?php
 
-namespace EXSyst\Component\FunctionalExpressionLanguage\Node\Parsing;
+namespace EXSyst\Component\FunctionalExpressionLanguage\Node\Internal;
 
 use EXSyst\Component\FunctionalExpressionLanguage\Node\Node;
 use EXSyst\Component\FunctionalExpressionLanguage\Visitor\NodeVisitor;
+use EXSyst\Component\FunctionalExpressionLanguage\Visitor\VisitorState;
 
 /**
  * Only used when parsing.
@@ -23,7 +24,7 @@ final class FunctionStructureNode extends Node
     {
         $this->function = $function;
         if ($structure) {
-            $this->expression = $structure->getExpression();
+            $this->expression = $structure->expression;
         }
     }
 

@@ -12,32 +12,34 @@ use EXSyst\Component\FunctionalExpressionLanguage\Library\Operator;
 
 class ParserTest extends \PHPUnit_Framework_TestCase
 {
+    use ParserTestTrait;
+    
     /**
      * @dataProvider getTokenizeData
      */
     public function testTokenize($node, $expression, array $operators = array())
     {
-        $this->assertEquals(new Node\Parsing\StructureNode('(', $node), $this->getNode($expression, $operators));
+        $this->assertEquals(new Node\Internal\StructureNode('(', $node), $this->getNode($expression, $operators));
     }
 
     public function getTokenizeData()
     {
         return [
             'call' =>[
-                new Node\Parsing\FunctionStructureNode(new Node\NameNode('foo'), new Node\Parsing\StructureNode('(')),
+                new Node\Internal\FunctionStructureNode(new Node\NameNode('foo'), new Node\Internal\StructureNode('(')),
                 'foo()',
             ],
             'nested_calls' => [
-                new Node\Parsing\FunctionStructureNode(
+                new Node\Internal\FunctionStructureNode(
                     new Node\NameNode('foo'),
-                    new Node\Parsing\StructureNode('(',
+                    new Node\Internal\StructureNode('(',
                         new Node\FunctionCallNode(
                             new Node\NameNode(','),
                             [
                                 new Node\NameNode('bar'),
-                                new Node\Parsing\FunctionStructureNode(
+                                new Node\Internal\FunctionStructureNode(
                                     new Node\NameNode('foo'),
-                                    new Node\Parsing\StructureNode('(',
+                                    new Node\Internal\StructureNode('(',
                                         new Node\NameNode('foo')
                                     )
                                 ),
@@ -58,9 +60,9 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                 'foo.bar',
             ],
             'literals' => [
-                new Node\Parsing\FunctionStructureNode(
+                new Node\Internal\FunctionStructureNode(
                     new Node\NameNode('foo'),
-                    new Node\Parsing\StructureNode('(',
+                    new Node\Internal\StructureNode('(',
                         new Node\FunctionCallNode(
                             new Node\NameNode(','),
                             [
@@ -89,7 +91,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                             [
                                 new Node\NameNode('bar'),
                                 // (baz: 4; baz)
-                                new Node\Parsing\StructureNode(
+                                new Node\Internal\StructureNode(
                                     '(',
                                     // baz: 4; baz
                                     new Node\FunctionCallNode(
@@ -122,7 +124,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                     new Node\NameNode('=>'),
                     [
                         // (x, y)
-                        new Node\Parsing\StructureNode(
+                        new Node\Internal\StructureNode(
                             '(',
                             new Node\FunctionCallNode(
                                 new Node\NameNode(','),
@@ -188,7 +190,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                 ]
             ],
             'test array' => [
-                new Node\Parsing\StructureNode(
+                new Node\Internal\StructureNode(
                     '[',
                     new Node\FunctionCallNode(
                         new Node\NameNode(':'),
@@ -201,8 +203,8 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                 '[foo: bar]',
             ],
             'test complex function call' => [
-                new Node\Parsing\FunctionStructureNode(
-                    new Node\Parsing\StructureNode(
+                new Node\Internal\FunctionStructureNode(
+                    new Node\Internal\StructureNode(
                         '(',
                         new Node\FunctionCallNode(
                             new Node\NameNode('=>'),
@@ -212,7 +214,7 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                             ]
                         )
                     ),
-                    new Node\Parsing\StructureNode('(', null)
+                    new Node\Internal\StructureNode('(', null)
                 ),
                 '(x => bar)()',
             ],
@@ -221,9 +223,9 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                     new Node\NameNode('=>'),
                     [
                         new Node\NameNode('x'),
-                        new Node\Parsing\FunctionStructureNode(
+                        new Node\Internal\FunctionStructureNode(
                             new Node\NameNode('bar'),
-                            new Node\Parsing\StructureNode('(', null)
+                            new Node\Internal\StructureNode('(', null)
                         ),
                     ]
                 ),
@@ -264,13 +266,5 @@ class ParserTest extends \PHPUnit_Framework_TestCase
             [')'],
             ['{'],
         ];
-    }
-
-    private function getNode($expression, array $operators = array())
-    {
-        $parser = new Parser($operators);
-        $lexer = new Lexer($expression, $parser);
-
-        return $parser->getRootNode();
     }
 }
