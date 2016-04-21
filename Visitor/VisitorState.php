@@ -7,7 +7,7 @@ use EXSyst\Component\FunctionalExpressionLanguage\Node\Node;
 class VisitorState
 {
     private $ancestors;
-    private $current;
+    public $current;
     private $userData;
 
     public function __construct(array $ancestors, Node &$current, \ArrayObject $userData = null)
@@ -17,7 +17,7 @@ class VisitorState
         }
 
         $this->ancestors = $ancestors;
-        $this->current =& $current;
+        $this->current = &$current;
         $this->userData = $userData;
     }
 

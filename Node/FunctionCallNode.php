@@ -14,7 +14,7 @@ final class FunctionCallNode extends Node
      * @param Node   $function
      * @param Node[] $arguments
      */
-    public function __construct(Node $function, array $arguments = array())
+    public function __construct(Node $function, array $arguments = [])
     {
         $this->function = $function;
         $this->arguments = $arguments;

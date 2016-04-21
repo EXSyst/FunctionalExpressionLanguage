@@ -14,6 +14,7 @@ class Parser implements ParserInterface
     const SEPARATOR_PRECEDENCE = -4;
     const INTEROGATION_PRECEDENCE = -1;
 
+    private $hydrator;
     private $root;
     private $generator;
     private $operators;
@@ -25,6 +26,7 @@ class Parser implements ParserInterface
      */
     public function __construct(array $operators = array())
     {
+        $this->hydrator = new Hydrator();
         $this->operators = [
             ',' => new Operator(',', self::SEPARATOR_PRECEDENCE, Operator::LEFT_ASSOCIATION),
             ';' => new Operator(';', self::SEPARATOR_PRECEDENCE, Operator::LEFT_ASSOCIATION),
@@ -70,16 +72,17 @@ class Parser implements ParserInterface
 
     private function parse(): \Generator
     {
-        $this->root = new Node\Internal\StructureNode('(', yield from $this->parseExpression());
+        $this->root = $this->hydrator->createScope(yield from $this->parseExpression());
         $this->expect(yield, TokenType::EOF);
     }
 
     private function parseExpression(int $precedence = self::SEPARATOR_PRECEDENCE): \Generator
     {
-        if (($expression = yield from $this->tryParseName())
+        if (($expression = yield from $this->tryParseLambda())
+            || ($expression = yield from $this->tryParseName())
             || ($expression = yield from $this->tryParseLiteral())
-            || ($expression = yield from $this->tryParseStructure('[', ']'))
-            || ($expression = yield from $this->tryParseStructure('(', ')', false))) {
+            || ($expression = yield from $this->tryParseStructure('[', ']', [$this->hydrator, 'createArray']))
+            || ($expression = yield from $this->tryParseStructure('(', ')', [$this->hydrator, 'createScope']))) {
 
             $expression = yield from $this->tryParseFunctionCall($expression);
 
@@ -89,7 +92,27 @@ class Parser implements ParserInterface
         throw new UnexpectedTokenException(yield);
     }
 
-    private function tryParseOperation(Node\Node $expression, int $precedence)
+    private function tryParseLambda(): \Generator
+    {
+        try {
+            $arguments = yield from $this->transact(function() {
+                if (($arguments = yield from $this->tryParseStructure('(', ')', function (Node\Node $expression) { return $expression; }))
+                    || ($arguments = yield from $this->tryParseName())) {
+                    $this->expect(yield, TokenType::SYMBOL, '=>');
+
+                    return $arguments;
+                }
+
+                throw new UnexpectedTokenException(yield);
+            });
+        } catch (UnexpectedTokenException $e) {
+            return false;
+        }
+
+        return $this->hydrator->createLambda($arguments, yield from $this->parseExpression());
+    }
+
+    private function tryParseOperation(Node\Node $expression, int $precedence): \Generator
     {
         while (true) {
             try {
@@ -115,25 +138,23 @@ class Parser implements ParserInterface
                 ? $operator->getPrecedence($precedence) + 1
                 : $operator->getPrecedence($precedence)
             );
-            $expression = new Node\FunctionCallNode(
-                new Node\NameNode($operator->getName()),
-                [
-                    $expression,
-                    $expression2,
-                ]
-            );
+            $expression = $this->hydrator->createOperation($operator->getName(), $expression, $expression2);
         }
 
         return $expression;
     }
 
-    private function tryParseFunctionCall(Node\Node $expression): \Generator
+    private function tryParseFunctionCall(Node\Node $function): \Generator
     {
-        if ($structure = yield from $this->tryParseStructure('(', ')')) {
-            return new Node\Internal\FunctionStructureNode($expression, $structure);
+        $nodeCreator = function (Node\Node $expression = null) use ($function) {
+            return $this->hydrator->createFunctionCall($function, $expression);
+        };
+
+        if ($functionCall = yield from $this->tryParseStructure('(', ')', $nodeCreator)) {
+            return $functionCall;
         }
 
-        return $expression;
+        return $function;
     }
 
     private function tryParseName(): \Generator
@@ -142,7 +163,7 @@ class Parser implements ParserInterface
             return yield from $this->transact(function() {
                 $this->expect($name = yield, TokenType::NAME);
 
-                return new Node\NameNode($name->value);
+                return $this->hydrator->createName($name->value);
             });
         } catch (UnexpectedTokenException $e) {
             return false;
@@ -161,20 +182,10 @@ class Parser implements ParserInterface
             return false;
         }
 
-        // strings
-        if ($pos = max(strrpos($value, '"'), strrpos($value, '\''))) {
-            return new Node\LiteralNode(substr($value, 1, $pos - 1), substr($value, $pos + 1));
-        }
-
-        preg_match('/^([0-9]+)(\.[0-9]*)?([^0-9\.]*)$/', $value, $matches);
-        if ($matches[1]) {
-            return new Node\LiteralNode(floatval($matches[1].$matches[2]), $matches[3]);
-        }
-
-        return new Node\LiteralNode(intval($matches[1]), $matches[3]);
+        return $this->hydrator->createLiteral($value);
     }
 
-    private function tryParseStructure(string $openingTag, string $closingTag, bool $allowEmpty = true): \Generator
+    private function tryParseStructure(string $openingTag, string $closingTag, callable $nodeCreator): \Generator
     {
         try {
             yield from $this->transact(function() use ($openingTag) {
@@ -184,22 +195,20 @@ class Parser implements ParserInterface
             return false;
         }
 
-        if ($allowEmpty) {
-            // To return clearer errors, try to close the structure
-            try {
-                yield from $this->transact(function () use ($closingTag) {
-                    $this->expect(yield, TokenType::PUNCTUATION, $closingTag);
-                });
+        // To return clearer errors, try to close the structure
+        try {
+            yield from $this->transact(function () use ($closingTag) {
+                $this->expect(yield, TokenType::PUNCTUATION, $closingTag);
+            });
 
-                return new Node\Internal\StructureNode($openingTag);
-            } catch (UnexpectedTokenException $e) {
-            }
+            return call_user_func($nodeCreator);
+        } catch (UnexpectedTokenException $e) {
         }
 
         $expression = yield from $this->parseExpression();
         $this->expect(yield, TokenType::PUNCTUATION, $closingTag);
 
-        return new Node\Internal\StructureNode($openingTag, $expression);
+        return call_user_func($nodeCreator, $expression);
     }
 
     private function registerOperator(Operator $operator)

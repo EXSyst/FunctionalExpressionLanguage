@@ -7,12 +7,14 @@ use EXSyst\Component\FunctionalExpressionLanguage\Visitor\VisitorState;
 
 final class ArrayNode extends Node
 {
-    public $elements = [];
+    public $elements;
 
-    public function addElement(Node $value)
+    /**
+     * @param Node[] $elements
+     */
+    public function __construct(array $elements = [])
     {
-
-        $this->elements[] = $value;
+        $this->elements = $elements;
     }
 
     public function accept(NodeVisitor $visitor, VisitorState $state)

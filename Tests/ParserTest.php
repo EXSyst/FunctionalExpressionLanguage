@@ -13,39 +13,34 @@ use EXSyst\Component\FunctionalExpressionLanguage\Library\Operator;
 class ParserTest extends \PHPUnit_Framework_TestCase
 {
     use ParserTestTrait;
-    
+
     /**
      * @dataProvider getTokenizeData
      */
     public function testTokenize($node, $expression, array $operators = array())
     {
-        $this->assertEquals(new Node\Internal\StructureNode('(', $node), $this->getNode($expression, $operators));
+        $this->assertEquals($node, $this->getNode($expression, $operators));
     }
 
     public function getTokenizeData()
     {
         return [
             'call' =>[
-                new Node\Internal\FunctionStructureNode(new Node\NameNode('foo'), new Node\Internal\StructureNode('(')),
+                new Node\FunctionCallNode(new Node\NameNode('foo')),
                 'foo()',
             ],
             'nested_calls' => [
-                new Node\Internal\FunctionStructureNode(
+                new Node\FunctionCallNode(
                     new Node\NameNode('foo'),
-                    new Node\Internal\StructureNode('(',
+                    [
+                        new Node\NameNode('bar'),
                         new Node\FunctionCallNode(
-                            new Node\NameNode(','),
+                            new Node\NameNode('foo'),
                             [
-                                new Node\NameNode('bar'),
-                                new Node\Internal\FunctionStructureNode(
-                                    new Node\NameNode('foo'),
-                                    new Node\Internal\StructureNode('(',
-                                        new Node\NameNode('foo')
-                                    )
-                                ),
+                                new Node\NameNode('foo'),
                             ]
                         )
-                    )
+                    ]
                 ),
                 'foo(bar, foo(foo))',
             ],
@@ -60,92 +55,44 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                 'foo.bar',
             ],
             'literals' => [
-                new Node\Internal\FunctionStructureNode(
+                new Node\FunctionCallNode(
                     new Node\NameNode('foo'),
-                    new Node\Internal\StructureNode('(',
-                        new Node\FunctionCallNode(
-                            new Node\NameNode(','),
-                            [
-                                new Node\FunctionCallNode(
-                                    new Node\NameNode(','),
-                                    [
-                                        new Node\LiteralNode('my_string', 'suffixed'),
-                                        new Node\LiteralNode(32, 'bar')
-                                    ]
-                                ),
-                                new Node\LiteralNode(1.23, 'kg'),
-                            ]
-                        )
-                    )
+                    [
+                        new Node\LiteralNode('my_string', 'suffixed'),
+                        new Node\LiteralNode(32, 'bar'),
+                        new Node\LiteralNode(1.23, 'kg'),
+                    ]
                 ),
                 'foo("my_string"suffixed, 32bar, 1.23kg)',
             ],
             'scopes' => [
-                // bar: (...); foo
-                new Node\FunctionCallNode(
-                    new Node\NameNode(';'),
+                new Node\ScopeNode(
                     [
-                        // bar: (...)
-                        new Node\FunctionCallNode(
-                            new Node\NameNode(':'),
+                        'bar' => new Node\ScopeNode(
                             [
-                                new Node\NameNode('bar'),
-                                // (baz: 4; baz)
-                                new Node\Internal\StructureNode(
-                                    '(',
-                                    // baz: 4; baz
-                                    new Node\FunctionCallNode(
-                                        new Node\NameNode(';'),
-                                        [
-                                            // baz: 4
-                                            new Node\FunctionCallNode(
-                                                new Node\NameNode(':'),
-                                                [
-                                                    new Node\NameNode('baz'),
-                                                    new Node\LiteralNode(4),
-                                                ]
-                                            ),
-                                            // baz
-                                            new Node\NameNode('baz'),
-                                        ]
-                                    )
-                                )
-                            ]
-                        ),
-                        // foo
-                        new Node\NameNode('foo'),
-                    ]
+                                'baz' => new Node\LiteralNode(4),
+                            ],
+                            new Node\NameNode('baz')
+                        )
+                    ],
+                    new Node\NameNode('foo')
                 ),
                 'bar: (baz: 4; baz); foo'
             ],
             'lambda' => [
-                // (...) => ...
-                new Node\FunctionCallNode(
-                    new Node\NameNode('=>'),
+                new Node\LambdaNode(
                     [
-                        // (x, y)
-                        new Node\Internal\StructureNode(
-                            '(',
-                            new Node\FunctionCallNode(
-                                new Node\NameNode(','),
-                                [
-                                    new Node\NameNode('x'),
-                                    new Node\NameNode('y'),
-                                ]
-                            )
-                        ),
-                        // foo
-                        new Node\NameNode('foo'),
-                    ]
+                        new Node\NameNode('x'),
+                        new Node\NameNode('y')
+                    ],
+                    new Node\NameNode('foo')
                 ),
                 '(x, y) => foo'
             ],
             'test precedence of ?: operator' => [
-                new Node\FunctionCallNode(
-                    new Node\NameNode(':'),
+                new Node\ScopeNode(
                     [
-                        new Node\NameNode('bar'),
-                        new Node\FunctionCallNode(
+                        'bar' => new Node\FunctionCallNode(
                             new Node\NameNode('?'),
                             [
                                 new Node\NameNode('foo'),
@@ -158,9 +105,10 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                                 ),
                             ]
                         ),
-                    ]
+                    ],
+                    new Node\NameNode('bar')
                 ),
-                'bar: foo ? quz : baz'
+                'bar: foo ? quz : baz; bar'
             ],
             'test custom operators' => [
                 new Node\FunctionCallNode(
@@ -190,49 +138,60 @@ class ParserTest extends \PHPUnit_Framework_TestCase
                 ]
             ],
             'test array' => [
-                new Node\Internal\StructureNode(
-                    '[',
-                    new Node\FunctionCallNode(
-                        new Node\NameNode(':'),
-                        [
-                            new Node\NameNode('foo'),
-                            new Node\NameNode('bar'),
-                        ]
-                    )
+                new Node\ArrayNode(
+                    [
+                        new Node\NameNode('foo'),
+                        new Node\LiteralNode('bar'),
+                    ]
                 ),
-                '[foo: bar]',
+                '[foo, "bar"]',
             ],
             'test complex function call' => [
-                new Node\Internal\FunctionStructureNode(
-                    new Node\Internal\StructureNode(
-                        '(',
-                        new Node\FunctionCallNode(
-                            new Node\NameNode('=>'),
-                            [
-                                new Node\NameNode('x'),
-                                new Node\NameNode('bar'),
-                            ]
-                        )
-                    ),
-                    new Node\Internal\StructureNode('(', null)
+                new Node\FunctionCallNode(
+                    new Node\LambdaNode(
+                        [
+                            new Node\NameNode('x'),
+                        ],
+                        new Node\NameNode('bar')
+                    )
                 ),
                 '(x => bar)()',
             ],
             'test complex function call priority' => [
-                new Node\FunctionCallNode(
-                    new Node\NameNode('=>'),
+                new Node\LambdaNode(
                     [
-                        new Node\NameNode('x'),
-                        new Node\Internal\FunctionStructureNode(
-                            new Node\NameNode('bar'),
-                            new Node\Internal\StructureNode('(', null)
-                        ),
-                    ]
+                        new Node\NameNode('x')
+                    ],
+                    new Node\FunctionCallNode(
+                        new Node\NameNode('bar')
+                    )
                 ),
                 'x => bar()',
             ],
         ];
     }
+
+    /**
+     * @dataProvider equivalenceProvider
+     */
+    // public function testEquivalence(array $operators, $expression, ...$equivalences)
+    // {
+    //     $node = $this->getNode($expression, $operators);
+    //     foreach ($equivalences as $equivalence) {
+    //         $this->assertEquals($node, $this->getNode($equivalence));
+    //     }
+    // }
+    //
+    // public function equivalenceProvider()
+    // {
+    //     return [
+    //         [
+    //             [ new Operator('+', 15, Operator::LEFT_ASSOCIATION) ],
+    //             'a + b + c',
+    //             '+(+(a, b), c)'
+    //         ]
+    //     ];
+    // }
 
     /**
      * @expectedException EXSyst\Component\FunctionalExpressionLanguage\Exception\UnexpectedTokenException

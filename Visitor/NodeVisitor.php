@@ -87,7 +87,7 @@ abstract class NodeVisitor
         }
     }
 
-    protected function visitChild(Node\Node $node, VisitorState $state)
+    protected function visitChild(Node\Node &$node, VisitorState $state)
     {
         $this->visit($node, $state->createChild($node));
     }

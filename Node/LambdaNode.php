@@ -11,8 +11,8 @@ final class LambdaNode extends Node
     public $expression;
 
     /**
-     * @param Node $arguments
-     * @param Node $expression
+     * @param Node[] $arguments
+     * @param Node   $expression
      */
     public function __construct(array $arguments, Node $expression)
     {
