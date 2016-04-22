@@ -11,7 +11,7 @@ class Operator
     private $precedence;
     private $associativity;
 
-    public function __construct(string $name, int $precedence, int $associativity)
+    public function __construct(string $name, int $precedence, int $associativity = self::LEFT_ASSOCIATION, string $replacement = null)
     {
         $this->name = $name;
         $this->precedence = $precedence;
